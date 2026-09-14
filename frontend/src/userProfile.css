@@ -1,0 +1,198 @@
+.profile-page {
+  min-height: 100vh;
+  background: #f5f7fa;
+  font-family: Arial, sans-serif;
+}
+
+
+/* HEADER */
+
+.profile-header {
+  height: 70px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 50px;
+  border-bottom: 1px solid #ddd;
+}
+
+.profile-header .logo {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.back-link {
+  text-decoration: none;
+  color: #333;
+}
+
+
+/* MAIN CONTENT */
+
+.profile-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.profile-container h1 {
+  margin-bottom: 5px;
+}
+
+.profile-subtitle {
+  color: #666;
+  margin-bottom: 30px;
+}
+
+
+/* PROFILE CARD */
+
+.profile-card {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  margin-bottom: 25px;
+  border: 1px solid #ddd;
+}
+
+.profile-picture {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #e8e8e8;
+
+  margin: 0 auto 15px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-picture span {
+  font-size: 25px;
+  font-weight: bold;
+}
+
+.profile-card h2 {
+  margin: 5px 0;
+}
+
+.profile-card p {
+  color: #666;
+}
+
+
+/* BUTTONS */
+
+.edit-btn,
+.save-btn,
+.cancel-btn,
+.trips-btn,
+.logout-btn {
+  padding: 11px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.edit-btn {
+  margin-top: 15px;
+  background: #222;
+  color: white;
+}
+
+.edit-buttons {
+  margin-top: 20px;
+}
+
+.save-btn {
+  background: #222;
+  color: white;
+  margin-right: 10px;
+}
+
+.cancel-btn {
+  background: #ddd;
+  color: #333;
+}
+
+
+/* INFORMATION CARDS */
+
+.information-card {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 25px;
+  border: 1px solid #ddd;
+}
+
+.information-card h2 {
+  margin-top: 0;
+  margin-bottom: 25px;
+}
+
+
+/* PROFILE FIELDS */
+
+.profile-field {
+  margin-bottom: 20px;
+}
+
+.profile-field label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 7px;
+}
+
+.profile-field p {
+  margin: 0;
+  color: #555;
+}
+
+.profile-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+
+/* TRAVEL PREFERENCES */
+
+.preference-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.preference-row:last-child {
+  border-bottom: none;
+}
+
+
+/* MY TRIPS */
+
+.trips-btn {
+  display: inline-block;
+  margin-top: 15px;
+  background: #222;
+  color: white;
+  text-decoration: none;
+}
+
+
+/* LOGOUT */
+
+.logout-btn {
+  display: block;
+  margin: 30px auto;
+  background: #ddd;
+  color: #333;
+}
