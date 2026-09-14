@@ -71,8 +71,22 @@ function Home() {
       <div className="page">
         <div className="header">
           <div className="logo">Uplift</div>
-          <button className="header-logout" onClick={handleLogout}>Logout</button>
+
+          <div>
+            <button
+              className="header-profile"
+              onClick={() => navigate("/profile")}
+            >
+              Profile
+            </button>
+
+            <button className="header-logout" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+
         </div>
+
         <div className="home-content">
           <div className="user-welcome-card">
             <p className="error-text">{error || "Unable to load user information"}</p>
@@ -95,7 +109,20 @@ function Home() {
 
       <div className="header">
         <div className="logo">Uplift</div>
-        <button className="header-logout" onClick={handleLogout}>Logout</button>
+
+        <div>
+          <button
+            className="header-profile"
+            onClick={() => navigate("/profile")}
+          >
+            Profile
+          </button>
+
+          <button className="header-logout" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+
       </div>
 
       <div className="home-content">
