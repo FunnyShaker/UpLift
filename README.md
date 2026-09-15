@@ -2,13 +2,11 @@
 
 # Group Members
 
-Name   and       GitHub ID
------------------------------------
-Daniel Gililov      :   FunnyShaker
-
-Vadim Kurbanbakiyev  :  KVadim2001
-
-Yasin Hajilou      :   yasinhajilou       
+| Name | GitHub ID |
+|---|---|
+| Daniel Gililov | [FunnyShaker](https://github.com/FunnyShaker) |
+| Vadim Kurbanbakiyev | [KVadim2001](https://github.com/KVadim2001) |
+| Yasin Hajilou | [yasinhajilou](https://github.com/yasinhajilou) |
 
 # Uplift is a centralized air travel platform
 
