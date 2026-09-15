@@ -1,5 +1,15 @@
 # BTS530-UpLift Description
 
+# Group Members
+
+Name   and       GitHub ID
+-----------------------------------
+Daniel Gililov      :   FunnyShaker
+
+Vadim Kurbanbakiyev  :  KVadim2001
+
+Yasin Hajilou      :   yasinhajilou       
+
 # Uplift is a centralized air travel platform
 
 ## Product summary
