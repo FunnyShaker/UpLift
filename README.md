@@ -1,4 +1,4 @@
-# BTS530-UpLift Description
+# UpLift Description
 
 # Group Members
 
