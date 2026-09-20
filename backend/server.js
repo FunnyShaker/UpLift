@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express')
-const mongoose = require('mongoose')
 const cors = require('cors')
 const PORT = process.env.PORT || 3000
 const authRoutes = require('./routes/auth')
 const flightsRoutes = require('./routes/flights')
+const profileRoutes = require('./routes/profile')
 const User = require('./models/User')
-const verifyToken = require('./middleware/auth')
+const { verifyToken } = require('./middleware/auth')
+const { ping } = require('./db/nocodb')
 const app = express()
 
 const allowedOrigins = process.env.FRONTEND_URL
@@ -26,21 +27,32 @@ app.use(express.json())
 
 // Setup routes
 app.use('/api/flights', flightsRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api', authRoutes);
+
+// Health check - confirms the backend can talk to NocoDB
+app.get('/api/health', async (req, res) => {
+  try {
+    await ping()
+    res.json({ status: 'ok', database: 'nocodb' })
+  } catch (err) {
+    res.status(503).json({ status: 'error', database: 'nocodb', error: err.message })
+  }
+})
 
 // Protected route - requires valid JWT token
 app.get('/api/home', verifyToken, async (req, res) => {
     try {
-      const user = await User.findById(req.user.userId)
+      const user = await User.findByEmail(req.user.email)
       if (!user) {
         return res.status(404).json({message : 'User not found'})
       }
       res.json({
-        message : 'Welcome back', 
-        user: { 
-          fullName: user.fullName, 
-          email: user.email, 
-          userType: user.userType 
+        message : 'Welcome back',
+        user: {
+          fullName: user.fullName,
+          email: user.email,
+          userType: user.userType
         }
       })
     } catch (err) {
@@ -49,15 +61,17 @@ app.get('/api/home', verifyToken, async (req, res) => {
     }
 })
 
-// Connect to MongoDB and start server
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('MongoDB connected')
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
-    })
-  })
-  .catch(err => {
-    console.error('MongoDB connection error:', err)
-    process.exit(1)
-  })
+// Start the server, then confirm the NocoDB connection
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`)
+
+  try {
+    await ping()
+    console.log('NocoDB connected')
+  } catch (err) {
+    console.error('NocoDB connection failed:', err.message)
+    console.error('Check NOCODB_URL, NOCODB_TOKEN and the NOCODB_TABLE_* ids in .env')
+  }
+})
+
+module.exports = app

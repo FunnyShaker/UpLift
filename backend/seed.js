@@ -1,104 +1,113 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
+const { createRecord } = require('./db/nocodb');
 const Flight = require('./models/Flight');
 
+const F = Flight.FIELDS;
+
+// Demo flights. Rows already in NocoDB are left untouched - this only fills in
+// flight IDs that are missing, so it is safe to run more than once.
 const mockFlights = [
   {
-    flightId: "f1",
-    airline: "Air Canada",
-    from: "YYZ",
-    to: "LAX",
-    departureDate: "2026-04-15",
-    departureTime: "08:00",
-    arrivalDate: "2026-04-15",
-    arrivalTime: "11:30",
-    duration: "5h 30m",
-    price: 299,
-    isActive: true
+    [F.flightId]: "f1",
+    [F.airline]: "Air Canada",
+    [F.from]: "YYZ",
+    [F.to]: "LAX",
+    [F.departureDate]: "2026-04-15",
+    [F.departureTime]: "08:00:00",
+    [F.arrivalDate]: "2026-04-15",
+    [F.arrivalTime]: "11:30:00",
+    [F.duration]: "5h 30m",
+    [F.price]: 299,
+    [F.isActive]: true
   },
   {
-    flightId: "f2",
-    airline: "WestJet",
-    from: "YYZ",
-    to: "NYC",
-    departureDate: "2026-04-15",
-    departureTime: "10:00",
-    arrivalDate: "2026-04-15",
-    arrivalTime: "12:00",
-    duration: "2h",
-    price: 199,
-    isActive: true
+    [F.flightId]: "f2",
+    [F.airline]: "WestJet",
+    [F.from]: "YYZ",
+    [F.to]: "NYC",
+    [F.departureDate]: "2026-04-15",
+    [F.departureTime]: "10:00:00",
+    [F.arrivalDate]: "2026-04-15",
+    [F.arrivalTime]: "12:00:00",
+    [F.duration]: "2h",
+    [F.price]: 199,
+    [F.isActive]: true
   },
   {
-    flightId: "f3",
-    airline: "Air Canada",
-    from: "YYZ",
-    to: "NYC",
-    departureDate: "2026-04-15",
-    departureTime: "14:30",
-    arrivalDate: "2026-04-15",
-    arrivalTime: "16:30",
-    duration: "2h",
-    price: 189,
-    isActive: true
+    [F.flightId]: "f3",
+    [F.airline]: "Air Canada",
+    [F.from]: "YYZ",
+    [F.to]: "NYC",
+    [F.departureDate]: "2026-04-15",
+    [F.departureTime]: "14:30:00",
+    [F.arrivalDate]: "2026-04-15",
+    [F.arrivalTime]: "16:30:00",
+    [F.duration]: "2h",
+    [F.price]: 189,
+    [F.isActive]: true
   },
   {
-    flightId: "f4",
-    airline: "WestJet",
-    from: "YYZ",
-    to: "LAX",
-    departureDate: "2026-04-16",
-    departureTime: "06:00",
-    arrivalDate: "2026-04-16",
-    arrivalTime: "09:30",
-    duration: "5h 30m",
-    price: 279,
-    isActive: true
+    [F.flightId]: "f4",
+    [F.airline]: "WestJet",
+    [F.from]: "YYZ",
+    [F.to]: "LAX",
+    [F.departureDate]: "2026-04-16",
+    [F.departureTime]: "06:00:00",
+    [F.arrivalDate]: "2026-04-16",
+    [F.arrivalTime]: "09:30:00",
+    [F.duration]: "5h 30m",
+    [F.price]: 279,
+    [F.isActive]: true
   },
   {
-    flightId: "f5",
-    airline: "United Airlines",
-    from: "LAX",
-    to: "NYC",
-    departureDate: "2026-04-15",
-    departureTime: "13:00",
-    arrivalDate: "2026-04-15",
-    arrivalTime: "21:00",
-    duration: "5h",
-    price: 249,
-    isActive: true
+    [F.flightId]: "f5",
+    [F.airline]: "United Airlines",
+    [F.from]: "LAX",
+    [F.to]: "NYC",
+    [F.departureDate]: "2026-04-15",
+    [F.departureTime]: "13:00:00",
+    [F.arrivalDate]: "2026-04-15",
+    [F.arrivalTime]: "21:00:00",
+    [F.duration]: "5h",
+    [F.price]: 249,
+    [F.isActive]: true
   },
   {
-    flightId: "f6",
-    airline: "Delta",
-    from: "NYC",
-    to: "LAX",
-    departureDate: "2026-04-16",
-    departureTime: "09:00",
-    arrivalDate: "2026-04-16",
-    arrivalTime: "12:00",
-    duration: "5h",
-    price: 259,
-    isActive: true
+    [F.flightId]: "f6",
+    [F.airline]: "Delta",
+    [F.from]: "NYC",
+    [F.to]: "LAX",
+    [F.departureDate]: "2026-04-16",
+    [F.departureTime]: "09:00:00",
+    [F.arrivalDate]: "2026-04-16",
+    [F.arrivalTime]: "12:00:00",
+    [F.duration]: "5h",
+    [F.price]: 259,
+    [F.isActive]: true
   }
 ];
 
 async function seedFlights() {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB connected');
+    let added = 0;
 
-    // Clear existing flights
-    await Flight.deleteMany({});
-    console.log('Cleared existing flights');
+    for (const flight of mockFlights) {
+      const flightId = flight[F.flightId];
+      const existing = await Flight.findByFlightId(flightId);
 
-    // Insert mock flights
-    const result = await Flight.insertMany(mockFlights);
-    console.log(`${result.length} flights seeded successfully`);
+      if (existing) {
+        console.log(`Skipped ${flightId} - already in NocoDB`);
+        continue;
+      }
 
-    mongoose.connection.close();
+      await createRecord('flights', flight);
+      console.log(`Added ${flightId}`);
+      added++;
+    }
+
+    console.log(`Done. ${added} flight(s) added, ${mockFlights.length - added} skipped.`);
   } catch (err) {
-    console.error('Error seeding flights:', err);
+    console.error('Error seeding flights:', err.message);
     process.exit(1);
   }
 }

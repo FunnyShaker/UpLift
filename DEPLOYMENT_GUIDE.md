@@ -40,7 +40,9 @@
 
 #### Step 2: Update .env for Vercel
 Add these environment variables in Vercel dashboard:
-- `MONGO_URI` - Your MongoDB connection string
+- `NOCODB_URL` - Your NocoDB instance URL (e.g. `https://app.nocodb.com`)
+- `NOCODB_TOKEN` - NocoDB API token
+- `NOCODB_TABLE_USERS`, `NOCODB_TABLE_FLIGHTS`, `NOCODB_TABLE_SEARCHES` - table ids
 - `JWT_SECRET` - A strong secret key (generate one: `openssl rand -hex 32`)
 - `NODE_ENV` - Set to "production"
 - `FRONTEND_URL` - Your frontend URL (e.g., `https://myapp.vercel.app`)
@@ -68,7 +70,11 @@ Push to GitHub and link to Vercel. Vercel auto-detects React and builds it.
 
 ### Backend (.env)
 ```
-MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/dbname
+NOCODB_URL=https://app.nocodb.com
+NOCODB_TOKEN=your-nocodb-api-token
+NOCODB_TABLE_USERS=table-id
+NOCODB_TABLE_FLIGHTS=table-id
+NOCODB_TABLE_SEARCHES=table-id
 JWT_SECRET=your-generated-secret-here
 NODE_ENV=production
 FRONTEND_URL=https://your-frontend-domain.vercel.app
@@ -121,7 +127,7 @@ curl http://localhost:3000/api/home \
 2. Keep secrets in environment variables, NEVER commit them
 3. Set `JWT_SECRET` differently for dev and production
 4. Tokens expire in 7 days (configurable in auth.js)
-5. Make sure MongoDB connection is accessible from Vercel
+5. Make sure the NocoDB API token is valid and set in Vercel
 
 ## 🎉 You're Ready for Production!
 

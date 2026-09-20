@@ -32,7 +32,8 @@ You're getting CORS error on login because the backend and frontend URLs don't m
 **Result should look like:**
 ```
 FRONTEND_URL    = https://up-lift-frontend.vercel.app
-MONGO_URI       = mongodb+srv://...
+NOCODB_URL      = https://app.nocodb.com
+NOCODB_TOKEN    = (your NocoDB API token)
 JWT_SECRET      = (your secret)
 NODE_ENV        = production
 PORT            = 3500

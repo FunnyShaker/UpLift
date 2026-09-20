@@ -3,46 +3,40 @@
 ## 📋 Prerequisites Checklist
 - [ ] GitHub account (with your repo pushed)
 - [ ] Vercel account (free tier) - https://vercel.com/signup
-- [ ] MongoDB Atlas account (free tier) - https://www.mongodb.com/cloud/atlas
+- [ ] NocoDB account (free tier) - https://app.nocodb.com
 - [ ] All code committed and pushed to GitHub
 
 ---
 
-## Part 1: Setup MongoDB Atlas (Database)
+## Part 1: Setup NocoDB (Database)
 
-### Step 1: Create MongoDB Cluster
-1. Go to https://www.mongodb.com/cloud/atlas
-2. Click "Build a Database"
-3. Choose **"Shared"** (free tier)
-4. Select a region close to you
-5. Click "Create Cluster" (takes ~3 minutes)
+The UpLift base holds three tables: **Users**, **Flights** and **Search Details**.
 
-### Step 2: Create Database User
-1. In MongoDB Atlas, go to **"Database Access"** (left sidebar)
-2. Click **"+ ADD NEW DATABASE USER"**
-3. Enter:
-   - Username: `uplift_user` (or your choice)
-   - Password: Create a strong password (save it!)
-   - Method: **"Password (SCRAM)"**
-4. Click "Add User"
+### Step 1: Get an API Token
+1. Go to https://app.nocodb.com and open the UpLift base
+2. Click your avatar (top right) → **"Account Settings"** → **"Tokens"**
+3. Click **"Add New Token"**, give it a name, and copy the token
+4. Save it - you'll need it as `NOCODB_TOKEN`
 
-### Step 3: Get Connection String
-1. Go to **"Databases"** tab
-2. Find your cluster, click **"Connect"**
-3. Choose **"Connect your application"**
-4. Copy the connection string that looks like:
-   ```
-   mongodb+srv://uplift_user:PASSWORD@cluster0.xxxxx.mongodb.net/dbname?retryWrites=true&w=majority
-   ```
-5. **Replace `PASSWORD` with your actual password**
-6. **Replace `dbname` with `uplift`** (or any name)
-7. Save this string - you'll need it!
+### Step 2: Get the Table IDs
+For each of the three tables:
+1. Right-click the table in the left sidebar
+2. Click **"Copy Table ID"** (it looks like `mabc123xyz456`)
+3. Save them as `NOCODB_TABLE_USERS`, `NOCODB_TABLE_FLIGHTS`, `NOCODB_TABLE_SEARCHES`
 
-### Step 4: Allow Network Access
-1. Go to **"Network Access"** (left sidebar)
-2. Click **"+ ADD IP ADDRESS"**
-3. Select **"Allow access from anywhere"** (for Vercel)
-4. Click "Confirm"
+### Step 3: (Optional) Get the Search Details Link Field ID
+Only needed if searches should be linked back to the user who ran them:
+1. Open the **Search Details** table → **"..."** menu → **"API Snippet"**
+2. Find the "Link Records" example and copy the link field id from the URL
+3. Save it as `NOCODB_SEARCHES_USER_LINK_ID`
+
+### Step 4: Verify Locally
+```bash
+cd backend
+cp .env.example .env    # then fill in the values above
+npm run check-db
+```
+Every configured table should report **OK**.
 
 ---
 
@@ -76,8 +70,7 @@ Make sure your `backend/package.json` has these dependencies:
   "cors": "^2.8.6",
   "dotenv": "^17.3.1",
   "express": "^5.2.1",
-  "jsonwebtoken": "^9.1.0",
-  "mongoose": "^9.3.0"
+  "jsonwebtoken": "^9.1.0"
 }
 ```
 
@@ -102,7 +95,12 @@ git push origin main
 
 | Name | Value |
 |------|-------|
-| `MONGO_URI` | `mongodb+srv://uplift_user:PASSWORD@cluster0.xxxxx.mongodb.net/uplift?retryWrites=true&w=majority` |
+| `NOCODB_URL` | `https://app.nocodb.com` |
+| `NOCODB_TOKEN` | Your NocoDB API token from Part 1 |
+| `NOCODB_TABLE_USERS` | Table id of the Users table |
+| `NOCODB_TABLE_FLIGHTS` | Table id of the Flights table |
+| `NOCODB_TABLE_SEARCHES` | Table id of the Search Details table |
+| `NOCODB_SEARCHES_USER_LINK_ID` | (Optional) link field id from Part 1, Step 3 |
 | `JWT_SECRET` | Generate one: `openssl rand -hex 32` (run in terminal) |
 | `NODE_ENV` | `production` |
 | `FRONTEND_URL` | (Leave blank for now, update after frontend deploys) |
@@ -236,8 +234,8 @@ Your URLs:
 **Error**: "Failed to load flights"
 
 **Solution**:
-1. Check `MONGO_URI` in backend environment variables
-2. Check MongoDB Atlas allows network access from anywhere
+1. Check `NOCODB_URL`, `NOCODB_TOKEN` and the `NOCODB_TABLE_*` ids in backend environment variables
+2. Open `https://your-backend-url.vercel.app/api/health` - it reports the database status
 3. Check `FRONTEND_URL` is set in backend
 
 ### User Info Not Showing
@@ -262,7 +260,7 @@ Your URLs:
 **Solution**:
 1. Make sure you created an account first
 2. Check email and password are correct
-3. Check MongoDB connection is working
+3. Check the NocoDB connection is working (`/api/health`)
 4. Check backend logs in Vercel
 
 ---
@@ -298,7 +296,7 @@ vercel env pull .env.local
 ## 📞 Need Help?
 
 - Vercel Docs: https://vercel.com/docs
-- MongoDB Atlas: https://docs.atlas.mongodb.com
+- NocoDB API: https://docs.nocodb.com/data-sources/data-apis
 - Express.js: https://expressjs.com
 - React: https://react.dev
 

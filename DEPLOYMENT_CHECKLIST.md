@@ -10,13 +10,13 @@
 - [ ] Backend has no syntax errors (`node -c server.js`)
 
 ### Database Ready
-- [ ] MongoDB Atlas cluster created
-- [ ] Database user created (username & password saved)
-- [ ] Network access allowed from anywhere
-- [ ] Connection string obtained and tested
+- [ ] NocoDB base with Users, Flights and Search Details tables
+- [ ] API token created and saved
+- [ ] Table ids copied for all three tables
+- [ ] `npm run check-db` passes locally
 
 ### Credentials Prepared
-- [ ] MongoDB connection string (MONGO_URI)
+- [ ] NocoDB URL, API token and table ids
 - [ ] JWT_SECRET generated (`openssl rand -hex 32`)
 - [ ] Vercel account created (free tier)
 - [ ] GitHub connected to Vercel
@@ -27,7 +27,7 @@
 
 **DO THIS IN THIS ORDER:**
 
-1. **Setup MongoDB** → Get MONGO_URI
+1. **Setup NocoDB** → Get API token + table ids
 2. **Deploy Backend** → Get backend URL
 3. **Deploy Frontend** → Get frontend URL
 4. **Update Backend** → Set FRONTEND_URL
@@ -39,7 +39,11 @@
 
 ### Backend (on Vercel)
 ```
-MONGO_URI = mongodb+srv://USER:PASS@cluster.mongodb.net/uplift?retryWrites=true&w=majority
+NOCODB_URL = https://app.nocodb.com
+NOCODB_TOKEN = (your NocoDB API token)
+NOCODB_TABLE_USERS = (Users table id)
+NOCODB_TABLE_FLIGHTS = (Flights table id)
+NOCODB_TABLE_SEARCHES = (Search Details table id)
 JWT_SECRET = (generate with: openssl rand -hex 32)
 NODE_ENV = production
 FRONTEND_URL = https://your-frontend.vercel.app
@@ -82,7 +86,7 @@ REACT_APP_API_URL = https://your-backend.vercel.app
 | Issue | Solution |
 |-------|----------|
 | "User data not available" | Check JWT_SECRET in backend env vars |
-| "Failed to load flights" | Check MONGO_URI connection string |
+| "Failed to load flights" | Check NocoDB env vars, or open `/api/health` |
 | CORS errors | Update FRONTEND_URL in backend |
 | Blank page loading | Check REACT_APP_API_URL in frontend |
 | "No token provided" | Logout, clear localStorage, login again |
@@ -94,7 +98,7 @@ REACT_APP_API_URL = https://your-backend.vercel.app
 1. **Share your URL**: Friends can now use your app!
 2. **Monitor logs**: Check Vercel dashboard for errors
 3. **Update API calls**: Any new features should use JWT auth
-4. **Scale database**: Upgrade MongoDB when needed
+4. **Scale database**: Upgrade the NocoDB plan when needed
 5. **Custom domain**: Add your own domain in Vercel settings
 
 ---
@@ -103,7 +107,7 @@ REACT_APP_API_URL = https://your-backend.vercel.app
 
 - [Vercel Docs](https://vercel.com/docs)
 - [Express.js Guide](https://expressjs.com)
-- [MongoDB Atlas](https://docs.atlas.mongodb.com)
+- [NocoDB Data APIs](https://docs.nocodb.com/data-sources/data-apis)
 - [JWT Auth](https://jwt.io)
 - [React Deployment](https://create-react-app.dev/deployment/vercel/)
 
@@ -111,11 +115,11 @@ REACT_APP_API_URL = https://your-backend.vercel.app
 
 ## 💡 Pro Tips
 
-✨ **Tip 1**: Keep MongoDB Atlas URL in .env file locally, never hardcode it
+✨ **Tip 1**: Keep the NocoDB API token in .env file locally, never hardcode it
 
 ✨ **Tip 2**: Use different JWT secrets for dev and production
 
-✨ **Tip 3**: Enable auto-scaling in MongoDB Atlas for production
+✨ **Tip 3**: Rotate the NocoDB API token if it is ever exposed
 
 ✨ **Tip 4**: Check Vercel analytics to see your app's stats
 
