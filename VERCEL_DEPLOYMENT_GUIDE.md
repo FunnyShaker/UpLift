@@ -6,6 +6,14 @@
 - [ ] NocoDB account (free tier) - https://app.nocodb.com
 - [ ] All code committed and pushed to GitHub
 
+> **Known issue before you start:** `frontend/src/pages/userProfile.js` still has
+> the placeholder strings `YOUR_PROFILE_API_URL`, `YOUR_UPDATE_PROFILE_API_URL`
+> and `YOUR_LOGOUT_API_URL`, and it sends cookies (`credentials: "include"`)
+> instead of the `Authorization: Bearer <token>` header the API expects.
+> Deploying does not fix this - the profile page will load with empty fields and
+> "Unable to load your profile information." The `/api/profile` endpoints
+> themselves are working. Signup, login and flights are unaffected.
+
 ---
 
 ## Part 1: Setup NocoDB (Database)
@@ -42,54 +50,23 @@ Every configured table should report **OK**.
 
 ## Part 2: Deploy Backend to Vercel
 
-### Step 1: Create vercel.json in Backend
-In `/backend` folder, create a file named `vercel.json`:
+### Step 1: Confirm the Backend Is Ready
+`backend/vercel.json` and the dependencies in `backend/package.json` are already
+committed - there is nothing to create. Just confirm both are pushed:
 
-```json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
-  ]
-}
-```
-
-### Step 2: Update Backend package.json
-Make sure your `backend/package.json` has these dependencies:
-```json
-"dependencies": {
-  "cors": "^2.8.6",
-  "dotenv": "^17.3.1",
-  "express": "^5.2.1",
-  "jsonwebtoken": "^9.1.0"
-}
-```
-
-### Step 3: Commit Changes
 ```bash
-cd backend
-git add vercel.json package.json
-git commit -m "Add Vercel configuration"
+git status          # should be clean
 git push origin main
 ```
 
-### Step 4: Deploy Backend to Vercel
+### Step 2: Deploy Backend to Vercel
 1. Go to https://vercel.com/dashboard
 2. Click **"New Project"**
 3. Click **"Import Git Repository"**
 4. Select your `BTS530-UpLift` repository
 5. Click "Import"
 
-### Step 5: Configure Environment Variables
+### Step 3: Configure Environment Variables
 1. In Vercel project settings, find **"Environment Variables"**
 2. Add these variables:
 
@@ -107,63 +84,69 @@ git push origin main
 
 3. Click "Save"
 
-### Step 6: Select Root Directory
+### Step 4: Select Root Directory
 1. In Vercel, go to **"Settings"** → **"Root Directory"**
 2. Click "Edit" and select **"backend"**
 3. Click "Save"
 
-### Step 7: Deploy
+### Step 5: Deploy
 1. Click **"Deploy"**
 2. Wait ~2-5 minutes
 3. You should see a green checkmark and a URL like: `https://uplift-backend.vercel.app`
 4. **Save this URL!**
 
-### Step 8: Test Backend
-Open this in your browser (replace with your URL):
+### Step 6: Test Backend
+Open these in your browser (replace with your URL):
 ```
-https://your-backend-url.vercel.app/api/flights
+https://your-backend-url.vercel.app/api/health     -> {"status":"ok","database":"nocodb"}
+https://your-backend-url.vercel.app/api/flights    -> the flight list
 ```
 
-You should see flights data! ✅
+Check `/api/health` first - it tells you whether the NocoDB variables are right,
+which is the usual reason a fresh deploy fails.
 
 ---
 
 ## Part 3: Deploy Frontend to Vercel
 
-### Step 1: Update Frontend .env
-In `/frontend`, create `.env.local`:
+### Step 1: Fix `frontend/.env.production`
+This file is committed and currently points at an old Render backend that is no
+longer serving the API. Update it to the backend URL from Part 2:
 
 ```
 REACT_APP_API_URL=https://your-backend-url.vercel.app
 ```
 
-Example:
+```bash
+git add frontend/.env.production
+git commit -m "Point frontend at the Vercel backend"
+git push origin main
 ```
-REACT_APP_API_URL=https://uplift-backend.vercel.app
-```
+
+Do **not** create `frontend/.env.local` for this - it is in `.gitignore`, so it
+never reaches Vercel and `git add` will refuse it.
+
+`REACT_APP_*` values are baked into the bundle **at build time**, so changing
+this file only takes effect on the next build. The variable you set in the
+Vercel dashboard (Step 3 below) overrides this file, but keep the file correct
+anyway so a local `npm run build` doesn't produce a broken bundle.
 
 ### Step 2: Build & Test Locally (Optional)
 ```bash
 cd frontend
 npm run build
+grep -o "https://[a-z0-9.-]*" build/static/js/main.*.js | sort -u | head
 ```
+The URL you just configured should appear in that list.
 
-### Step 3: Commit Changes
-```bash
-cd frontend
-git add .env.local
-git commit -m "Add frontend environment configuration"
-git push origin main
-```
-
-### Step 4: Deploy Frontend to Vercel
+### Step 3: Deploy Frontend to Vercel
 1. Go to https://vercel.com/dashboard
 2. Click **"New Project"**
 3. Click **"Import Git Repository"**
 4. Select your `BTS530-UpLift` repository
 5. Click "Import"
 
-### Step 5: Configure Settings
+### Step 4: Configure Settings
 1. **Framework Preset**: Select **"Create React App"**
 2. **Root Directory**: Select **"frontend"**
 3. Click "Environment Variables"
@@ -172,7 +155,7 @@ git push origin main
    - Value: `https://your-backend-url.vercel.app`
 5. Click "Save"
 
-### Step 6: Deploy
+### Step 5: Deploy
 1. Click **"Deploy"**
 2. Wait ~3-5 minutes
 3. You should see your frontend URL: `https://uplift-frontend.vercel.app`
@@ -218,6 +201,19 @@ git push origin main
 1. Use same email and password from signup
 2. You should see your info on home page ✅
 
+### Test 5: Profile API
+The page is not wired up yet (see the note at the top), so test the endpoint
+directly. In the browser console on your deployed frontend, after logging in:
+
+```js
+fetch(`${process.env.REACT_APP_API_URL || "https://your-backend-url.vercel.app"}/api/profile`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+}).then(r => r.json()).then(console.log)
+```
+
+You should get `{ fullName, email, userType, country, phone }` ✅
+A CORS error here means `FRONTEND_URL` on the backend is wrong (see Part 4).
+
 ---
 
 ## 🎉 Deployment Complete!
@@ -237,6 +233,35 @@ Your URLs:
 1. Check `NOCODB_URL`, `NOCODB_TOKEN` and the `NOCODB_TABLE_*` ids in backend environment variables
 2. Open `https://your-backend-url.vercel.app/api/health` - it reports the database status
 3. Check `FRONTEND_URL` is set in backend
+
+### Profile Page Is Blank
+
+**Error**: "Unable to load your profile information." with empty fields
+
+**Cause**: the placeholder URLs in `frontend/src/pages/userProfile.js` (see the
+note at the top of this guide). The request goes to the frontend's own domain,
+Vercel answers it with `index.html`, and parsing that as JSON throws.
+
+**Solution**: point the three `fetch` calls at
+`${process.env.REACT_APP_API_URL}/api/profile` and `/api/logout`, drop
+`credentials: "include"`, and send
+`Authorization: Bearer ${localStorage.getItem("token")}` like `viewFlights.js`
+does. Then rebuild.
+
+### Frontend Calls the Wrong Backend
+
+**Error**: every API call 404s, or hits an old URL you no longer use
+
+**Cause**: `REACT_APP_API_URL` is baked in at build time. A stale
+`frontend/.env.production` or a missing Vercel variable gets compiled into the
+bundle and no amount of redeploying the backend changes it.
+
+**Solution**: fix `frontend/.env.production`, confirm `REACT_APP_API_URL` is set
+in the frontend project's Vercel variables, then trigger a **new build** (not a
+rollback). Verify with:
+```bash
+grep -o "https://[a-z0-9.-]*" build/static/js/main.*.js | sort -u
+```
 
 ### User Info Not Showing
 **Error**: "User data not available"

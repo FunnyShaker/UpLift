@@ -10,8 +10,11 @@ const { verifyToken } = require('./middleware/auth')
 const { ping } = require('./db/nocodb')
 const app = express()
 
+// A browser's Origin header never has a trailing slash, so a FRONTEND_URL like
+// "https://site.vercel.app/" would match nothing and every request would be
+// blocked by CORS. Strip it here rather than relying on whoever sets the env var.
 const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/+$/, ''))
   : ['http://localhost:3000']
 
 console.log('CORS allowed origins:', allowedOrigins)
