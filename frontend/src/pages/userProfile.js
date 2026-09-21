@@ -2,6 +2,8 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import "../userProfile.css"
 
+const API_URL = process.env.REACT_APP_API_URL
+
 function UserProfile() {
 
   const [isEditing, setIsEditing] = useState(false)
@@ -30,9 +32,13 @@ function UserProfile() {
 
       try {
 
-        const response = await fetch("YOUR_PROFILE_API_URL", {
+        const token = localStorage.getItem("token")
+
+        const response = await fetch(`${API_URL}/api/profile`, {
           method: "GET",
-          credentials: "include"
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
         })
 
         if (!response.ok) {
@@ -101,14 +107,15 @@ function UserProfile() {
 
     try {
 
-      const response = await fetch("YOUR_UPDATE_PROFILE_API_URL", {
+      const token = localStorage.getItem("token")
+
+      const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
 
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
-
-        credentials: "include",
 
         body: JSON.stringify({
           fullName: profile.fullName,
@@ -159,22 +166,34 @@ function UserProfile() {
 
     try {
 
-      const response = await fetch("YOUR_LOGOUT_API_URL", {
-        method: "POST",
-        credentials: "include"
-      })
+      const token = localStorage.getItem("token")
 
-      if (!response.ok) {
-        throw new Error("Logout failed")
+      if (token) {
+        await fetch(`${API_URL}/api/logout`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        })
       }
-
-      window.location.href = "/"
 
     } catch (err) {
 
-      setError("Unable to log out.")
+      console.error("Logout error:", err)
 
     }
+
+    // Clear the session the same way the other pages do
+    const userEmail = localStorage.getItem("userEmail")
+
+    if (userEmail) {
+      localStorage.removeItem(`cart_${userEmail}`)
+    }
+
+    localStorage.removeItem("token")
+    localStorage.removeItem("userEmail")
+
+    window.location.href = "/"
 
   }
 
