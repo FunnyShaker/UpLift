@@ -11,6 +11,7 @@ function ViewFlights() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [filters, setFilters] = useState({ from: "", to: "", date: "" })
+  const [lastSearch, setLastSearch] = useState(null)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -35,13 +36,45 @@ function ViewFlights() {
   }
 
   useEffect(() => {
-    fetchFlights()
+    loadLastSearch()
   }, [])
+
+  // Open on the flights for whatever the user searched last time, falling back
+  // to the full list when they have not searched yet. The flights come back
+  // with the search, so replaying it does not get recorded as a new search.
+  const loadLastSearch = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        navigate("/")
+        return
+      }
+
+      const response = await axios.get(`${API_URL}/api/searches/latest`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+
+      const search = response.data.search
+      if (!search) {
+        fetchFlights()
+        return
+      }
+
+      setFilters({ from: search.from || "", to: search.to || "", date: search.date || "" })
+      setFlights(response.data.flights || [])
+      setLastSearch(search)
+      setLoading(false)
+    } catch (err) {
+      console.error("Error loading last search:", err)
+      fetchFlights()
+    }
+  }
 
   const fetchFlights = async (queryParams = {}) => {
     try {
       setLoading(true)
       setError("")
+      setLastSearch(null)
 
       const token = localStorage.getItem("token")
       if (!token) {
@@ -115,6 +148,14 @@ function ViewFlights() {
 
       <div className="flights-container">
         <h1 className="flights-title">Available Flights</h1>
+
+        {lastSearch && (
+          <p className="last-search-note">
+            Showing results from your last search
+            {lastSearch.from && lastSearch.to ? `: ${lastSearch.from} → ${lastSearch.to}` : ""}
+            {lastSearch.date ? ` on ${lastSearch.date}` : ""}
+          </p>
+        )}
 
         <form onSubmit={handleFilterSubmit} className="filter-form">
           <input

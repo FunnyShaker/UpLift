@@ -65,6 +65,7 @@ Authenticated routes expect `Authorization: Bearer <token>`.
 | `GET` | `/api/home` | yes | `{ user: { fullName, email, userType } }` |
 | `GET` | `/api/flights` | optional | `{ count, flights: [...] }`, filters: `from`, `to`, `date` |
 | `GET` | `/api/flights/:flightId` | no | `{ flight }` for one active flight |
+| `GET` | `/api/searches/latest` | yes | `{ search, count, flights: [...] }` for the user's last search |
 | `GET` | `/api/profile` | yes | `{ fullName, email, userType, country, phone }` |
 | `PUT` | `/api/profile` | yes | Updates `fullName`, `country`, `phone`; returns the profile |
 
@@ -99,6 +100,27 @@ When `/api/flights` is called with a filter, the search is written to the Search
 Details table. If a valid token was sent and `NOCODB_SEARCHES_USER_LINK_ID` is
 configured, the row is also linked to that user. Logging a search never blocks or
 fails the flight response.
+
+`GET /api/searches/latest` reads that history back: it returns the user's most
+recent search together with the flights matching it, so the flights page can open
+on where they left off. Users with no history get `{ "search": null, "flights": [] }`
+and the page falls back to the full list.
+
+```json
+{
+  "search": { "from": "YYZ", "to": "LAX", "date": "2026-04-15", "createdAt": "..." },
+  "count": 2,
+  "flights": [ ... ]
+}
+```
+
+The flights are looked up by that route inside this endpoint rather than by
+sending the client back to `/api/flights`, which would record the replayed search
+as a new one and pin every user's history to whatever they searched first.
+
+NocoDB only filters a Links column by the linked record's display value - which on
+Users is the email - so the lookup queries by email and then confirms the linked
+record id in JS. `(user,eq,<id>)` and `(user.Id,eq,<id>)` both match nothing.
 
 ## Scripts
 
