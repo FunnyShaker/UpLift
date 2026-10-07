@@ -21,11 +21,13 @@ function Cart() {
     } catch (err) {
       console.error("Logout error:", err)
     }
+
     // Clear user-specific cart
     const userEmail = localStorage.getItem("userEmail")
     if (userEmail) {
       localStorage.removeItem(`cart_${userEmail}`)
     }
+
     localStorage.removeItem("token")
     localStorage.removeItem("userEmail")
     navigate("/")
@@ -49,6 +51,15 @@ function Cart() {
     localStorage.setItem(cartKey, JSON.stringify(updatedCart))
   }
 
+  // Open the booking page for the selected flight
+  const handleBookFlight = (flight) => {
+    navigate("/booking", {
+      state: {
+        flight: flight
+      }
+    })
+  }
+
   const getTotal = () => {
     return cartItems.reduce(
       (total, item) => total + item.price * item.passengers,
@@ -66,9 +77,14 @@ function Cart() {
       <div className="cart-page">
         <div className="header">
           <div className="logo">Uplift</div>
-          <button className="header-logout" onClick={handleLogout}>Logout</button>
+
+          <button className="header-logout" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
+
         <h2>Your cart is empty</h2>
+
         <button onClick={() => navigate("/flights")}>
           Browse Flights
         </button>
@@ -78,9 +94,13 @@ function Cart() {
 
   return (
     <div className="cart-page">
+
       <div className="header">
         <div className="logo">Uplift</div>
-        <button className="header-logout" onClick={handleLogout}>Logout</button>
+
+        <button className="header-logout" onClick={handleLogout}>
+          Logout
+        </button>
       </div>
 
       <h1>Flight Summary</h1>
@@ -100,6 +120,10 @@ function Cart() {
             Remove
           </button>
 
+          <button onClick={() => handleBookFlight(item)}>
+            Book Flight
+          </button>
+
         </div>
       ))}
 
@@ -108,10 +132,16 @@ function Cart() {
         <h3>Total: ${getTotal() + 49}</h3>
       </div>
 
-      <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
+      <div style={{
+        display: "flex",
+        gap: "10px",
+        justifyContent: "center",
+        marginTop: "20px"
+      }}>
         <button onClick={() => navigate("/home")}>
           Back to Home
         </button>
+
         <button onClick={() => navigate("/flights")}>
           Change Flight
         </button>
