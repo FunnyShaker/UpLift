@@ -432,3 +432,94 @@ button:hover {
 .flight-card button:hover {
   background: #1a252f;
 }
+
+/* BOOKING PAGE */
+
+.booking-card {
+  max-width: 500px;
+  width: 100%;
+}
+
+.booking-card h1 {
+  color: #2c3e50;
+  margin-bottom: 25px;
+}
+
+.booking-card h2 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.booking-card p {
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.booking-layout {
+  display: flex;
+  gap: 25px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
+.booking-layout .booking-card {
+  flex: 1;
+}
+
+.booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.booking-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.booking-form input:focus {
+  outline: none;
+  border-color: #333;
+}
+
+.booking-form input[readonly] {
+  background-color: #f2f2f2;
+  cursor: not-allowed;
+}
+
+.success-text {
+  color: #27ae60;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+/* Payment Form */
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
+.payment-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.payment-form input:focus {
+  outline: none;
+  border-color: #333;
+}
