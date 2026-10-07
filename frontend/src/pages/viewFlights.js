@@ -10,28 +10,41 @@ function ViewFlights() {
   const [flights, setFlights] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [filters, setFilters] = useState({ from: "", to: "", date: "" })
+
+  const [filters, setFilters] = useState({
+    from: "",
+    to: "",
+    date: "",
+    roundTrip: false
+  })
+
   const [lastSearch, setLastSearch] = useState(null)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("token")
+
       if (token) {
         await axios.post(`${API_URL}/api/logout`, {}, {
-          headers: { "Authorization": `Bearer ${token}` }
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
         })
       }
     } catch (err) {
       console.error("Logout error:", err)
     }
-    // Clear user-specific cart
+
     const userEmail = localStorage.getItem("userEmail")
+
     if (userEmail) {
       localStorage.removeItem(`cart_${userEmail}`)
     }
+
     localStorage.removeItem("token")
     localStorage.removeItem("userEmail")
+
     navigate("/")
   }
 
@@ -39,31 +52,45 @@ function ViewFlights() {
     loadLastSearch()
   }, [])
 
-  // Open on the flights for whatever the user searched last time, falling back
-  // to the full list when they have not searched yet. The flights come back
-  // with the search, so replaying it does not get recorded as a new search.
+  // Open on the flights for whatever the user searched last time
   const loadLastSearch = async () => {
     try {
       const token = localStorage.getItem("token")
+
       if (!token) {
         navigate("/")
         return
       }
 
-      const response = await axios.get(`${API_URL}/api/searches/latest`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
+      const response = await axios.get(
+        `${API_URL}/api/searches/latest`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      )
 
       const search = response.data.search
+
       if (!search) {
         fetchFlights()
         return
       }
 
-      setFilters({ from: search.from || "", to: search.to || "", date: search.date || "" })
+      setFilters({
+        from: search.from || "",
+        to: search.to || "",
+        date: search.date || "",
+        roundTrip: search.roundTrip || false
+      })
+
+      // Use flights returned by the backend
       setFlights(response.data.flights || [])
+
       setLastSearch(search)
       setLoading(false)
+
     } catch (err) {
       console.error("Error loading last search:", err)
       fetchFlights()
@@ -77,18 +104,49 @@ function ViewFlights() {
       setLastSearch(null)
 
       const token = localStorage.getItem("token")
+
       if (!token) {
         navigate("/")
         return
       }
 
       const params = new URLSearchParams()
-      if (queryParams.from || filters.from) params.append("from", queryParams.from || filters.from)
-      if (queryParams.to || filters.to) params.append("to", queryParams.to || filters.to)
-      if (queryParams.date || filters.date) params.append("date", queryParams.date || filters.date)
+
+      if (queryParams.from || filters.from) {
+        params.append(
+          "from",
+          queryParams.from || filters.from
+        )
+      }
+
+      if (queryParams.to || filters.to) {
+        params.append(
+          "to",
+          queryParams.to || filters.to
+        )
+      }
+
+      if (queryParams.date || filters.date) {
+        params.append(
+          "date",
+          queryParams.date || filters.date
+        )
+      }
+
+      // Add round trip option to the search request
+      params.append(
+        "roundTrip",
+        queryParams.roundTrip !== undefined
+          ? queryParams.roundTrip
+          : filters.roundTrip
+      )
 
       const response = await axios.get(
-        `${API_URL}/api/flights${params.toString() ? "?" + params.toString() : ""}`,
+        `${API_URL}/api/flights${
+          params.toString()
+            ? "?" + params.toString()
+            : ""
+        }`,
         {
           headers: {
             "Authorization": `Bearer ${token}`
@@ -96,10 +154,18 @@ function ViewFlights() {
         }
       )
 
+      // Use flights returned by the backend
       setFlights(response.data.flights || [])
+
     } catch (err) {
       console.error("Error fetching flights:", err)
-      setError("Failed to load flights. Please try again.")
+
+      setError(
+        "Unable to load flights. Please try again."
+      )
+
+      setFlights([])
+
     } finally {
       setLoading(false)
     }
@@ -108,7 +174,10 @@ function ViewFlights() {
   const handleFilterChange = (e) => {
     setFilters({
       ...filters,
-      [e.target.name]: e.target.value
+      [e.target.name]:
+        e.target.type === "checkbox"
+          ? e.target.checked
+          : e.target.value
     })
   }
 
@@ -120,44 +189,160 @@ function ViewFlights() {
   const addToCart = (flight) => {
     const userEmail = localStorage.getItem("userEmail")
     const cartKey = `cart_${userEmail}`
-    let cart = JSON.parse(localStorage.getItem(cartKey)) || []
-    cart.push({ ...flight, passengers: 1 })
-    localStorage.setItem(cartKey, JSON.stringify(cart))
+
+    let cart =
+      JSON.parse(localStorage.getItem(cartKey)) || []
+
+    cart.push({
+      ...flight,
+      passengers: 1
+    })
+
+    localStorage.setItem(
+      cartKey,
+      JSON.stringify(cart)
+    )
+
     alert("Flight added to cart!")
+  }
+
+  // Check if a flight is already a favourite
+  const isFavourite = (flight) => {
+    const userEmail =
+      localStorage.getItem("userEmail")
+
+    const favouriteKey =
+      `favourites_${userEmail}`
+
+    const favourites =
+      JSON.parse(
+        localStorage.getItem(favouriteKey)
+      ) || []
+
+    return favourites.some(
+      item => item.flightId === flight.flightId
+    )
+  }
+
+  // Add or remove a flight from favourites
+  const toggleFavourite = (flight) => {
+    const userEmail =
+      localStorage.getItem("userEmail")
+
+    const favouriteKey =
+      `favourites_${userEmail}`
+
+    let favourites =
+      JSON.parse(
+        localStorage.getItem(favouriteKey)
+      ) || []
+
+    const alreadySaved =
+      favourites.some(
+        item =>
+          item.flightId === flight.flightId
+      )
+
+    if (alreadySaved) {
+
+      favourites =
+        favourites.filter(
+          item =>
+            item.flightId !== flight.flightId
+        )
+
+      localStorage.setItem(
+        favouriteKey,
+        JSON.stringify(favourites)
+      )
+
+      alert("Flight removed from favourites!")
+
+    } else {
+
+      favourites.push(flight)
+
+      localStorage.setItem(
+        favouriteKey,
+        JSON.stringify(favourites)
+      )
+
+      alert("Flight saved as a favourite!")
+    }
+
+    setFlights([...flights])
   }
 
   if (loading) {
     return (
       <div className="page">
+
         <div className="header">
-          <div className="logo">Uplift</div>
+
+          <div className="logo">
+            Uplift
+          </div>
+
         </div>
+
         <div className="flights-container">
-          <h2>Loading flights...</h2>
+
+          <h2>
+            Loading flights...
+          </h2>
+
         </div>
+
       </div>
     )
   }
 
   return (
     <div className="page">
+
       <div className="header">
-        <div className="logo">Uplift</div>
-        <button className="header-logout" onClick={handleLogout}>Logout</button>
+
+        <div className="logo">
+          Uplift
+        </div>
+
+        <button
+          className="header-logout"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+
       </div>
 
       <div className="flights-container">
-        <h1 className="flights-title">Available Flights</h1>
+
+        <h1 className="flights-title">
+          Available Flights
+        </h1>
 
         {lastSearch && (
           <p className="last-search-note">
+
             Showing results from your last search
-            {lastSearch.from && lastSearch.to ? `: ${lastSearch.from} → ${lastSearch.to}` : ""}
-            {lastSearch.date ? ` on ${lastSearch.date}` : ""}
+
+            {lastSearch.from &&
+            lastSearch.to
+              ? `: ${lastSearch.from} → ${lastSearch.to}`
+              : ""}
+
+            {lastSearch.date
+              ? ` on ${lastSearch.date}`
+              : ""}
+
           </p>
         )}
 
-        <form onSubmit={handleFilterSubmit} className="filter-form">
+        <form
+          onSubmit={handleFilterSubmit}
+          className="filter-form"
+        >
+
           <input
             type="text"
             name="from"
@@ -165,6 +350,7 @@ function ViewFlights() {
             value={filters.from}
             onChange={handleFilterChange}
           />
+
           <input
             type="text"
             name="to"
@@ -172,45 +358,146 @@ function ViewFlights() {
             value={filters.to}
             onChange={handleFilterChange}
           />
+
           <input
             type="date"
             name="date"
             value={filters.date}
             onChange={handleFilterChange}
           />
-          <button type="submit">Search</button>
+
+          <label className="round-trip-option">
+
+            <input
+              type="checkbox"
+              name="roundTrip"
+              checked={filters.roundTrip}
+              onChange={handleFilterChange}
+            />
+
+            Round Trip
+
+          </label>
+
+          <button type="submit">
+            Search
+          </button>
+
         </form>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <p className="error-text">
+            {error}
+          </p>
+        )}
 
         {flights.length === 0 ? (
-          <p className="no-flights-message">No flights found. Try different filters.</p>
+
+          <p className="no-flights-message">
+            No flights found. Try different filters.
+          </p>
+
         ) : (
+
           <div className="flights-list">
+
             {flights.map(flight => (
-              <div key={flight.flightId} className="flight-card">
-                <h3>{flight.airline}</h3>
-                <p><strong>{flight.from} → {flight.to}</strong></p>
-                <p>{flight.departureDate} {flight.departureTime} - {flight.arrivalTime}</p>
-                <p>Duration: {flight.duration}</p>
-                <p style={{ fontSize: "18px", fontWeight: "bold", color: "#2c3e50" }}>${flight.price}</p>
-                <button onClick={() => addToCart(flight)}>
+
+              <div
+                key={flight.flightId}
+                className="flight-card"
+              >
+
+                <h3>
+                  {flight.airline}
+                </h3>
+
+                <p>
+                  <strong>
+                    {flight.from} → {flight.to}
+                  </strong>
+                </p>
+
+                <p>
+                  {flight.departureDate}{" "}
+                  {flight.departureTime} -{" "}
+                  {flight.arrivalTime}
+                </p>
+
+                <p>
+                  Duration: {flight.duration}
+                </p>
+
+                <p
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                    color: "#2c3e50"
+                  }}
+                >
+                  ${flight.price}
+                </p>
+
+                <button
+                  onClick={() => addToCart(flight)}
+                >
                   Add to Cart
                 </button>
+
+                <button
+                  onClick={() =>
+                    toggleFavourite(flight)
+                  }
+                >
+                  {isFavourite(flight)
+                    ? "♥ Favourited"
+                    : "♡ Favourite"}
+                </button>
+
+                {isFavourite(flight) && (
+
+                  <p
+                    onClick={() =>
+                      toggleFavourite(flight)
+                    }
+                    style={{
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      marginTop: "5px"
+                    }}
+                  >
+                    Remove from favourites
+                  </p>
+
+                )}
+
               </div>
+
             ))}
+
           </div>
+
         )}
 
         <div className="flights-footer">
-          <button onClick={() => navigate("/home")}>
+
+          <button
+            onClick={() => navigate("/home")}
+          >
             Back to Home
           </button>
-          <button onClick={() => navigate("/cart")}>
+
+          <button
+            onClick={() => navigate("/cart")}
+          >
             View My Cart
           </button>
+
         </div>
+
       </div>
+
     </div>
   )
 }
