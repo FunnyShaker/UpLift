@@ -24,6 +24,8 @@ function ViewFlights() {
 
   const [lastSearch, setLastSearch] = useState(null)
   const [favouriteIds, setFavouriteIds] = useState([])
+  // Flight ID whose favourite is being saved, so a second click is ignored
+  const [savingFavourite, setSavingFavourite] = useState(null)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -270,6 +272,10 @@ function ViewFlights() {
 
   // Add or remove a flight from favourites
   const toggleFavourite = async (flight) => {
+    if (savingFavourite) return
+
+    setSavingFavourite(flight.flightId)
+
     try {
       const token = localStorage.getItem("token")
 
@@ -296,7 +302,12 @@ function ViewFlights() {
 
     } catch (err) {
       console.error("Error updating favourites:", err)
-      alert("Unable to update favourites. Please try again.")
+      alert(
+        err.response?.data?.message ||
+        "Unable to update favourites. Please try again."
+      )
+    } finally {
+      setSavingFavourite(null)
     }
   }
 
@@ -346,10 +357,13 @@ function ViewFlights() {
         onClick={() =>
           toggleFavourite(flight)
         }
+        disabled={savingFavourite !== null}
       >
-        {isFavourite(flight)
-          ? "♥ Favourited"
-          : "♡ Favourite"}
+        {savingFavourite === flight.flightId
+          ? "Saving..."
+          : isFavourite(flight)
+            ? "♥ Favourited"
+            : "♡ Favourite"}
       </button>
 
       {isFavourite(flight) && (

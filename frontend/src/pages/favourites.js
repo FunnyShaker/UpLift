@@ -8,6 +8,7 @@ const API_URL = process.env.REACT_APP_API_URL
 function Favourites() {
 
   const [favourites, setFavourites] = useState([])
+  const [removingId, setRemovingId] = useState(null)
   const navigate = useNavigate()
 
   // Load the user's saved favourite flights
@@ -60,6 +61,10 @@ function Favourites() {
   // Remove a flight from favourites
   const removeFavourite = async (flightId) => {
 
+    if (removingId) return
+
+    setRemovingId(flightId)
+
     try {
       const token = localStorage.getItem("token")
 
@@ -76,6 +81,12 @@ function Favourites() {
 
     } catch (err) {
       console.error("Error removing favourite:", err)
+      alert(
+        err.response?.data?.message ||
+        "Unable to remove favourite. Please try again."
+      )
+    } finally {
+      setRemovingId(null)
     }
   }
 
@@ -160,8 +171,11 @@ function Favourites() {
 
                 <button
                   onClick={() => removeFavourite(flight.flightId)}
+                  disabled={removingId !== null}
                 >
-                  Remove from Favourites
+                  {removingId === flight.flightId
+                    ? "Removing..."
+                    : "Remove from Favourites"}
                 </button>
 
               </div>
