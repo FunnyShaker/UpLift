@@ -13,9 +13,19 @@ const TABLE_ENV = {
   users: "NOCODB_TABLE_USERS",
   flights: "NOCODB_TABLE_FLIGHTS",
   searches: "NOCODB_TABLE_SEARCHES",
+  bookings: "NOCODB_TABLE_BOOKINGS",
+  favourites: "NOCODB_TABLE_FAVOURITES",
+  payments: "NOCODB_TABLE_PAYMENTS",
 };
 
 const DEFAULT_LIMIT = 200;
+
+// The free tier answers bursts with 429 "Too Many Requests". A booking makes
+// several calls in a row, so a throttled call is retried a few times first.
+const THROTTLE_RETRIES = 3;
+const THROTTLE_DELAY_MS = 1000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function tableId(table) {
   const envName = TABLE_ENV[table];
@@ -30,7 +40,7 @@ function recordsPath(table) {
   return `/api/v2/tables/${tableId(table)}/records`;
 }
 
-async function request(method, path, { query, body } = {}) {
+async function request(method, path, { query, body } = {}, attempt = 0) {
   const baseUrl = (process.env.NOCODB_URL || "").replace(/\/+$/, "");
   const token = process.env.NOCODB_TOKEN || "";
 
@@ -56,6 +66,11 @@ async function request(method, path, { query, body } = {}) {
     });
   } catch (err) {
     throw new Error(`Could not reach NocoDB at ${baseUrl}: ${err.message}`);
+  }
+
+  if (response.status === 429 && attempt < THROTTLE_RETRIES) {
+    await sleep(THROTTLE_DELAY_MS * (attempt + 1));
+    return request(method, path, { query, body }, attempt + 1);
   }
 
   const text = await response.text();
@@ -124,6 +139,10 @@ async function updateRecord(table, id, data) {
   return Array.isArray(updated) ? updated[0] : updated;
 }
 
+async function deleteRecord(table, id) {
+  return request("DELETE", recordsPath(table), { body: { Id: id } });
+}
+
 /**
  * Links one record to another through a Links column.
  * `linkFieldId` is the column id of the link field, from NocoDB's API snippet
@@ -150,6 +169,7 @@ module.exports = {
   getRecord,
   createRecord,
   updateRecord,
+  deleteRecord,
   linkRecord,
   ping,
   TABLE_ENV,

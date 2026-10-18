@@ -3,6 +3,9 @@ const { listRecords, TABLE_ENV } = require('./db/nocodb');
 const User = require('./models/User');
 const Flight = require('./models/Flight');
 const Search = require('./models/Search');
+const Booking = require('./models/Booking');
+const Payment = require('./models/Payment');
+const Favourite = require('./models/Favourite');
 
 /**
  * Verifies the NocoDB setup: credentials, table ids, and column titles.
@@ -13,6 +16,9 @@ const TABLES = [
   { name: 'users', label: 'Users', fields: User.FIELDS },
   { name: 'flights', label: 'Flights', fields: Flight.FIELDS },
   { name: 'searches', label: 'Search Details', fields: Search.FIELDS },
+  { name: 'bookings', label: 'Bookings', fields: Booking.FIELDS },
+  { name: 'payments', label: 'Payments', fields: Payment.FIELDS },
+  { name: 'favourites', label: 'Favourite Flights', fields: Favourite.FIELDS },
 ];
 
 async function checkTable({ name, label, fields }) {

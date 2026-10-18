@@ -30,6 +30,13 @@ See `.env.example`. The NocoDB ones are:
 | `NOCODB_TABLE_FLIGHTS` | Table id of Flights |
 | `NOCODB_TABLE_SEARCHES` | Table id of Search Details |
 | `NOCODB_SEARCHES_USER_LINK_ID` | Optional: link field id used to attach a search to a user |
+| `NOCODB_TABLE_BOOKINGS` | Table id of Bookings |
+| `NOCODB_TABLE_PAYMENTS` | Table id of Payments |
+| `NOCODB_TABLE_FAVOURITES` | Table id of Favourite Flights |
+| `NOCODB_BOOKINGS_USER_LINK_ID`, `NOCODB_BOOKINGS_FLIGHT_LINK_ID` | Link field ids of `user` and `flight` on Bookings |
+| `NOCODB_PAYMENTS_USER_LINK_ID`, `NOCODB_PAYMENTS_BOOKING_LINK_ID` | Link field ids of `user` and `booking` on Payments |
+| `NOCODB_FAVOURITES_USER_LINK_ID` | Link field id of `user` on Favourite Flights |
+| `NOCODB_FAVOURITES_FLIGHT_LINK_ID` | Link field id of `flight` on Favourite Flights |
 
 ## How the database layer works
 
@@ -63,11 +70,16 @@ Authenticated routes expect `Authorization: Bearer <token>`.
 | `POST` | `/api/login` | no | Log in, returns `{ user, token }` |
 | `POST` | `/api/logout` | no | No-op; the client drops the token |
 | `GET` | `/api/home` | yes | `{ user: { fullName, email, userType } }` |
-| `GET` | `/api/flights` | optional | `{ count, flights: [...] }`, filters: `from`, `to`, `date` |
+| `GET` | `/api/flights` | optional | `{ count, flights: [...] }`, filters: `from`, `to`, `date`, `roundTrip` |
 | `GET` | `/api/flights/:flightId` | no | `{ flight }` for one active flight |
 | `GET` | `/api/searches/latest` | yes | `{ search, count, flights: [...] }` for the user's last search |
 | `GET` | `/api/profile` | yes | `{ fullName, email, userType, country, phone }` |
 | `PUT` | `/api/profile` | yes | Updates `fullName`, `country`, `phone`; returns the profile |
+| `POST` | `/api/bookings` | yes | Books a flight and records its payment, returns `{ booking }` |
+| `GET` | `/api/bookings` | yes | `{ count, bookings: [...] }`, each with its `flight` |
+| `GET` | `/api/favourites` | yes | `{ count, flights: [...] }` the user has favourited |
+| `POST` | `/api/favourites` | yes | Body `{ flightId }`; returns the updated favourites |
+| `DELETE` | `/api/favourites/:flightId` | yes | Returns the updated favourites |
 
 `PUT /api/profile` only accepts those three fields - `email` and `userType` are
 read-only and anything else in the body is ignored. Values are trimmed, and the
@@ -121,6 +133,33 @@ as a new one and pin every user's history to whatever they searched first.
 NocoDB only filters a Links column by the linked record's display value - which on
 Users is the email - so the lookup queries by email and then confirms the linked
 record id in JS. `(user,eq,<id>)` and `(user.Id,eq,<id>)` both match nothing.
+
+### Bookings and payments
+
+`POST /api/bookings` takes:
+
+```json
+{
+  "flightId": "f2",
+  "fullName": "Jane Doe",
+  "payment": { "cardholderName": "Jane Doe", "cardNumber": "4111 1111 1111 1111", "expiryDate": "10/28", "cvv": "123" }
+}
+```
+
+The card is checked the same way the booking form checks it (16 digits, `MM/YY`
+not in the past, 3-4 digit CVV) and the route answers `400` with a message the
+form can show. The Payments row stores the card number masked to its last four
+digits (`**** **** **** 1111`); the full number and the CVV are never saved.
+
+The booking row is created first, then the payment. If the payment cannot be
+recorded the booking is deleted again, so there is never a booking without a
+payment.
+
+### Favourite Flights
+
+Each favourite is linked to the user and to the exact flight, and also keeps the
+route (`from`, `to`). If `NOCODB_FAVOURITES_FLIGHT_LINK_ID` is not set, favourites
+fall back to the route alone and cover every active flight on it.
 
 ## Scripts
 

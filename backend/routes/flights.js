@@ -8,6 +8,8 @@ const router = express.Router();
 router.get("/", optionalAuth, async (req, res) => {
   try {
     const { from, to, date } = req.query;
+    // Sent as a query string, so it arrives as "true"/"false"
+    const roundTrip = req.query.roundTrip === "true";
 
     const flights = await Flight.find({ from, to, date });
 
@@ -15,7 +17,7 @@ router.get("/", optionalAuth, async (req, res) => {
     // problem must never break the flight list.
     if (from || to || date) {
       try {
-        await Search.log({ from, to, date, userId: req.user?.userId });
+        await Search.log({ from, to, date, roundTrip, userId: req.user?.userId });
       } catch (err) {
         console.error("Could not record search:", err.message);
       }

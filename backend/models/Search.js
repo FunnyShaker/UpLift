@@ -11,6 +11,7 @@ const FIELDS = {
   from: "from",
   to: "to",
   departureDate: "departure date",
+  roundTrip: "round trip",
   user: "user",
 };
 
@@ -37,6 +38,7 @@ function toSearch(record) {
     from: record[FIELDS.from] || "",
     to: record[FIELDS.to] || "",
     date: toDate(record[FIELDS.departureDate]),
+    roundTrip: Boolean(record[FIELDS.roundTrip]),
     userId: linkedUserId(record[FIELDS.user]),
     createdAt: record.CreatedAt,
   };
@@ -47,13 +49,14 @@ function toSearch(record) {
  * is not configured. Linking to the user is skipped unless
  * NOCODB_SEARCHES_USER_LINK_ID is set (see .env.example).
  */
-async function log({ from, to, date, userId }) {
+async function log({ from, to, date, roundTrip, userId }) {
   if (!process.env.NOCODB_TABLE_SEARCHES) return null;
 
   const created = await createRecord("searches", {
     [FIELDS.from]: from ? String(from).toUpperCase() : null,
     [FIELDS.to]: to ? String(to).toUpperCase() : null,
     [FIELDS.departureDate]: date || null,
+    [FIELDS.roundTrip]: Boolean(roundTrip),
   });
 
   const linkFieldId = process.env.NOCODB_SEARCHES_USER_LINK_ID;

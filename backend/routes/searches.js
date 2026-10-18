@@ -40,6 +40,7 @@ router.get("/latest", verifyToken, async (req, res) => {
         from: search.from,
         to: search.to,
         date: search.date,
+        roundTrip: search.roundTrip,
         createdAt: search.createdAt,
       },
       count: flights.length,

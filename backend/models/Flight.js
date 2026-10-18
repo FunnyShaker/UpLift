@@ -1,4 +1,4 @@
-const { listRecords, findRecord, whereEquals } = require("../db/nocodb");
+const { listRecords, findRecord, getRecord, whereEquals } = require("../db/nocodb");
 
 /**
  * Flights table (NocoDB).
@@ -81,4 +81,12 @@ async function findByFlightId(flightId) {
   return flight.isActive ? flight : null;
 }
 
-module.exports = { FIELDS, find, findByFlightId, toFlight };
+/** One flight by its NocoDB record id (what Links columns point at), or null. */
+async function findById(id) {
+  if (!id) return null;
+
+  const record = await getRecord("flights", id);
+  return record && record[FIELDS.flightId] ? toFlight(record) : null;
+}
+
+module.exports = { FIELDS, find, findByFlightId, findById, toFlight };
