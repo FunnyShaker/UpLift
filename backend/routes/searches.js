@@ -25,6 +25,7 @@ router.get("/latest", verifyToken, async (req, res) => {
         search: null,
         count: 0,
         flights: [],
+        returnFlights: [],
       });
     }
 
@@ -34,6 +35,10 @@ router.get("/latest", verifyToken, async (req, res) => {
       date: search.date,
     });
 
+    const returnFlights = search.roundTrip
+      ? await Flight.findReturn({ from: search.from, to: search.to, returnDate: search.returnDate })
+      : [];
+
     res.json({
       message: "Latest search retrieved successfully",
       search: {
@@ -41,10 +46,12 @@ router.get("/latest", verifyToken, async (req, res) => {
         to: search.to,
         date: search.date,
         roundTrip: search.roundTrip,
+        returnDate: search.returnDate,
         createdAt: search.createdAt,
       },
       count: flights.length,
       flights: flights,
+      returnFlights: returnFlights,
     });
   } catch (err) {
     console.error("Error in GET /api/searches/latest:", err);

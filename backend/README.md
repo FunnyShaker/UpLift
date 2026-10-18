@@ -70,9 +70,9 @@ Authenticated routes expect `Authorization: Bearer <token>`.
 | `POST` | `/api/login` | no | Log in, returns `{ user, token }` |
 | `POST` | `/api/logout` | no | No-op; the client drops the token |
 | `GET` | `/api/home` | yes | `{ user: { fullName, email, userType } }` |
-| `GET` | `/api/flights` | optional | `{ count, flights: [...] }`, filters: `from`, `to`, `date`, `roundTrip` |
+| `GET` | `/api/flights` | optional | `{ count, flights, returnFlights }`, filters: `from`, `to`, `date`, `roundTrip`, `returnDate` |
 | `GET` | `/api/flights/:flightId` | no | `{ flight }` for one active flight |
-| `GET` | `/api/searches/latest` | yes | `{ search, count, flights: [...] }` for the user's last search |
+| `GET` | `/api/searches/latest` | yes | `{ search, count, flights, returnFlights }` for the user's last search |
 | `GET` | `/api/profile` | yes | `{ fullName, email, userType, country, phone }` |
 | `PUT` | `/api/profile` | yes | Updates `fullName`, `country`, `phone`; returns the profile |
 | `POST` | `/api/bookings` | yes | Books a flight and records its payment, returns `{ booking }` |
@@ -133,6 +133,17 @@ as a new one and pin every user's history to whatever they searched first.
 NocoDB only filters a Links column by the linked record's display value - which on
 Users is the email - so the lookup queries by email and then confirms the linked
 record id in JS. `(user,eq,<id>)` and `(user.Id,eq,<id>)` both match nothing.
+
+### Round trips
+
+With `roundTrip=true`, `/api/flights` also returns `returnFlights`: active flights
+on the reverse route (`to` → `from`), on `returnDate` when one is given. Both
+`from` and `to` are needed, otherwise `returnFlights` is empty. A `returnDate`
+before `date` is a `400`. Each leg is booked as its own booking.
+
+The return date is saved in the `return date` column of Search Details, but only
+when one was sent, so one-way searches are still recorded on a base where that
+column does not exist yet.
 
 ### Bookings and payments
 

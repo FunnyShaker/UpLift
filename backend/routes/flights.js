@@ -10,14 +10,21 @@ router.get("/", optionalAuth, async (req, res) => {
     const { from, to, date } = req.query;
     // Sent as a query string, so it arrives as "true"/"false"
     const roundTrip = req.query.roundTrip === "true";
+    const returnDate = roundTrip ? req.query.returnDate : undefined;
+
+    // "YYYY-MM-DD" strings compare correctly as text
+    if (date && returnDate && returnDate < date) {
+      return res.status(400).json({ message: "Return date must be on or after the departure date" });
+    }
 
     const flights = await Flight.find({ from, to, date });
+    const returnFlights = roundTrip ? await Flight.findReturn({ from, to, returnDate }) : [];
 
     // Record the search in the Search Details table. Best effort: a logging
     // problem must never break the flight list.
     if (from || to || date) {
       try {
-        await Search.log({ from, to, date, roundTrip, userId: req.user?.userId });
+        await Search.log({ from, to, date, roundTrip, returnDate, userId: req.user?.userId });
       } catch (err) {
         console.error("Could not record search:", err.message);
       }
@@ -27,6 +34,7 @@ router.get("/", optionalAuth, async (req, res) => {
       message: "Flights retrieved successfully",
       count: flights.length,
       flights: flights,
+      returnFlights: returnFlights,
     });
   } catch (err) {
     console.error("Error in GET /api/flights:", err);

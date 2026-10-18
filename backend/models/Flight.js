@@ -69,6 +69,16 @@ async function find({ from, to, date } = {}) {
   return records.map(toFlight).filter((flight) => flight.isActive);
 }
 
+/**
+ * Flights back the other way for a round trip: the reverse of from -> to, on
+ * the return date when there is one. Without both ends of the route there is
+ * no "way back" to look for.
+ */
+async function findReturn({ from, to, returnDate } = {}) {
+  if (!from || !to) return [];
+  return find({ from: to, to: from, date: returnDate });
+}
+
 /** One active flight by its business id ("f1"), or null. */
 async function findByFlightId(flightId) {
   const record = await findRecord("flights", {
@@ -89,4 +99,4 @@ async function findById(id) {
   return record && record[FIELDS.flightId] ? toFlight(record) : null;
 }
 
-module.exports = { FIELDS, find, findByFlightId, findById, toFlight };
+module.exports = { FIELDS, find, findReturn, findByFlightId, findById, toFlight };

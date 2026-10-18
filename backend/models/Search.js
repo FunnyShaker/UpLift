@@ -12,6 +12,7 @@ const FIELDS = {
   to: "to",
   departureDate: "departure date",
   roundTrip: "round trip",
+  returnDate: "return date",
   user: "user",
 };
 
@@ -39,6 +40,7 @@ function toSearch(record) {
     to: record[FIELDS.to] || "",
     date: toDate(record[FIELDS.departureDate]),
     roundTrip: Boolean(record[FIELDS.roundTrip]),
+    returnDate: toDate(record[FIELDS.returnDate]),
     userId: linkedUserId(record[FIELDS.user]),
     createdAt: record.CreatedAt,
   };
@@ -49,15 +51,21 @@ function toSearch(record) {
  * is not configured. Linking to the user is skipped unless
  * NOCODB_SEARCHES_USER_LINK_ID is set (see .env.example).
  */
-async function log({ from, to, date, roundTrip, userId }) {
+async function log({ from, to, date, roundTrip, returnDate, userId }) {
   if (!process.env.NOCODB_TABLE_SEARCHES) return null;
 
-  const created = await createRecord("searches", {
+  const row = {
     [FIELDS.from]: from ? String(from).toUpperCase() : null,
     [FIELDS.to]: to ? String(to).toUpperCase() : null,
     [FIELDS.departureDate]: date || null,
     [FIELDS.roundTrip]: Boolean(roundTrip),
-  });
+  };
+
+  // Only sent when there is one, so one-way searches keep being recorded even
+  // where the "return date" column has not been added yet.
+  if (returnDate) row[FIELDS.returnDate] = returnDate;
+
+  const created = await createRecord("searches", row);
 
   const linkFieldId = process.env.NOCODB_SEARCHES_USER_LINK_ID;
   if (created?.Id && userId && linkFieldId) {
