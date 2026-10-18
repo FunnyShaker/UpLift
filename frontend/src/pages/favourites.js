@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import axios from "axios"
 import "../App.css"
+
+const API_URL = process.env.REACT_APP_API_URL
 
 function Favourites() {
 
@@ -10,38 +13,70 @@ function Favourites() {
   // Load the user's saved favourite flights
   useEffect(() => {
 
-    const userEmail = localStorage.getItem("userEmail")
+    const token = localStorage.getItem("token")
 
-    if (!userEmail) {
+    if (!token) {
       navigate("/")
       return
     }
 
-    const favouriteKey = `favourites_${userEmail}`
-
-    const savedFavourites =
-      JSON.parse(localStorage.getItem(favouriteKey)) || []
-
-    setFavourites(savedFavourites)
+    axios.get(`${API_URL}/api/favourites`, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    })
+      .then(response => setFavourites(response.data.flights || []))
+      .catch(err => console.error("Error loading favourites:", err))
 
   }, [navigate])
 
-  // Remove a flight from favourites
-  const removeFavourite = (flightId) => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      if (token) {
+        await axios.post(`${API_URL}/api/logout`, {}, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        })
+      }
+    } catch (err) {
+      console.error("Logout error:", err)
+    }
 
     const userEmail = localStorage.getItem("userEmail")
-    const favouriteKey = `favourites_${userEmail}`
 
-    const updatedFavourites = favourites.filter(
-      flight => flight.flightId !== flightId
-    )
+    if (userEmail) {
+      localStorage.removeItem(`cart_${userEmail}`)
+    }
 
-    localStorage.setItem(
-      favouriteKey,
-      JSON.stringify(updatedFavourites)
-    )
+    localStorage.removeItem("token")
+    localStorage.removeItem("userEmail")
 
-    setFavourites(updatedFavourites)
+    navigate("/")
+  }
+
+  // Remove a flight from favourites
+  const removeFavourite = async (flightId) => {
+
+    try {
+      const token = localStorage.getItem("token")
+
+      const response = await axios.delete(
+        `${API_URL}/api/favourites/${flightId}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      )
+
+      setFavourites(response.data.flights || [])
+
+    } catch (err) {
+      console.error("Error removing favourite:", err)
+    }
   }
 
   return (
@@ -55,7 +90,7 @@ function Favourites() {
 
         <button
           className="header-logout"
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
         >
           Logout
         </button>

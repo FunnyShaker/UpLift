@@ -138,6 +138,9 @@ function Home() {
             <button className="secondary-link-btn" onClick={() => navigate("/cart")}>
               View My Cart
             </button>
+            <button className="secondary-link-btn" onClick={() => navigate("/favourites")}>
+              My Favourites
+            </button>
           </div>
         </div>
       </div>

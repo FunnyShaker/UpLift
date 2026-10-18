@@ -19,6 +19,7 @@ function ViewFlights() {
   })
 
   const [lastSearch, setLastSearch] = useState(null)
+  const [favouriteIds, setFavouriteIds] = useState([])
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -50,6 +51,7 @@ function ViewFlights() {
 
   useEffect(() => {
     loadLastSearch()
+    loadFavourites()
   }, [])
 
   // Open on the flights for whatever the user searched last time
@@ -206,71 +208,66 @@ function ViewFlights() {
     alert("Flight added to cart!")
   }
 
+  // Load the IDs of the user's favourite flights
+  const loadFavourites = async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      if (!token) return
+
+      const response = await axios.get(
+        `${API_URL}/api/favourites`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      )
+
+      setFavouriteIds(
+        (response.data.flights || []).map(item => item.flightId)
+      )
+
+    } catch (err) {
+      console.error("Error loading favourites:", err)
+    }
+  }
+
   // Check if a flight is already a favourite
   const isFavourite = (flight) => {
-    const userEmail =
-      localStorage.getItem("userEmail")
-
-    const favouriteKey =
-      `favourites_${userEmail}`
-
-    const favourites =
-      JSON.parse(
-        localStorage.getItem(favouriteKey)
-      ) || []
-
-    return favourites.some(
-      item => item.flightId === flight.flightId
-    )
+    return favouriteIds.includes(flight.flightId)
   }
 
   // Add or remove a flight from favourites
-  const toggleFavourite = (flight) => {
-    const userEmail =
-      localStorage.getItem("userEmail")
+  const toggleFavourite = async (flight) => {
+    try {
+      const token = localStorage.getItem("token")
 
-    const favouriteKey =
-      `favourites_${userEmail}`
+      const headers = {
+        "Authorization": `Bearer ${token}`
+      }
 
-    let favourites =
-      JSON.parse(
-        localStorage.getItem(favouriteKey)
-      ) || []
+      const response = isFavourite(flight)
+        ? await axios.delete(
+            `${API_URL}/api/favourites/${flight.flightId}`,
+            { headers }
+          )
+        : await axios.post(
+            `${API_URL}/api/favourites`,
+            { flightId: flight.flightId },
+            { headers }
+          )
 
-    const alreadySaved =
-      favourites.some(
-        item =>
-          item.flightId === flight.flightId
+      setFavouriteIds(
+        (response.data.flights || []).map(item => item.flightId)
       )
 
-    if (alreadySaved) {
+      alert(response.data.message)
 
-      favourites =
-        favourites.filter(
-          item =>
-            item.flightId !== flight.flightId
-        )
-
-      localStorage.setItem(
-        favouriteKey,
-        JSON.stringify(favourites)
-      )
-
-      alert("Flight removed from favourites!")
-
-    } else {
-
-      favourites.push(flight)
-
-      localStorage.setItem(
-        favouriteKey,
-        JSON.stringify(favourites)
-      )
-
-      alert("Flight saved as a favourite!")
+    } catch (err) {
+      console.error("Error updating favourites:", err)
+      alert("Unable to update favourites. Please try again.")
     }
-
-    setFlights([...flights])
   }
 
   if (loading) {

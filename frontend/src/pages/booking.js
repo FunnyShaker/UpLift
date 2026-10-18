@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
+import axios from "axios"
 import "../App.css"
+
+const API_URL = process.env.REACT_APP_API_URL
 
 function Booking() {
 
@@ -24,8 +27,32 @@ function Booking() {
   // Get the selected flight from the Cart page
   const flight = location.state?.flight
 
-  // Get the logged-in user's ID
-  const userId = localStorage.getItem("userId") || "Not available"
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      if (token) {
+        await axios.post(`${API_URL}/api/logout`, {}, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        })
+      }
+    } catch (err) {
+      console.error("Logout error:", err)
+    }
+
+    const userEmail = localStorage.getItem("userEmail")
+
+    if (userEmail) {
+      localStorage.removeItem(`cart_${userEmail}`)
+    }
+
+    localStorage.removeItem("token")
+    localStorage.removeItem("userEmail")
+
+    navigate("/")
+  }
 
   // Handle passenger information changes
   const handlePassengerChange = (e) => {
@@ -56,7 +83,7 @@ function Booking() {
 
           <button
             className="header-logout"
-            onClick={() => navigate("/")}
+            onClick={handleLogout}
           >
             Logout
           </button>
@@ -130,36 +157,41 @@ function Booking() {
 
     try {
 
-      /*
-       * Backend booking and payment request
-       * will be connected here.
-       *
-       * Passenger information:
-       * passengerInfo.fullName
-       * userId
-       *
-       * Flight information:
-       * flight.flightId
-       *
-       * Payment information:
-       * paymentInfo
-       */
+      const token = localStorage.getItem("token")
 
-      console.log("Passenger information:", passengerInfo)
-      console.log("User ID:", userId)
-      console.log("Flight ID:", flight.flightId)
+      if (!token) {
+        navigate("/")
+        return
+      }
 
-      // Do not store full payment information
-      console.log("Payment submitted successfully")
+      // The backend stores only the last 4 card digits; the CVV is never saved
+      const response = await axios.post(
+        `${API_URL}/api/bookings`,
+        {
+          flightId: flight.flightId,
+          fullName: passengerInfo.fullName,
+          payment: {
+            ...paymentInfo,
+            cardNumber
+          }
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      )
 
-      // Temporary message until backend endpoint is connected
-      setMessage("Booking confirmed successfully!")
+      setMessage(
+        `${response.data.message} Booking #${response.data.booking.bookingId}`
+      )
 
     } catch (err) {
 
       console.error("Booking error:", err)
 
       setError(
+        err.response?.data?.message ||
         "Unable to complete the booking. Please try again."
       )
     }
@@ -176,7 +208,7 @@ function Booking() {
 
         <button
           className="header-logout"
-          onClick={() => navigate("/")}
+          onClick={handleLogout}
         >
           Logout
         </button>
@@ -203,13 +235,6 @@ function Booking() {
                 placeholder="Full Name"
                 value={passengerInfo.fullName}
                 onChange={handlePassengerChange}
-              />
-
-              <input
-                type="text"
-                value={userId}
-                placeholder="User ID"
-                readOnly
               />
 
             </div>
