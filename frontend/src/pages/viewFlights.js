@@ -8,6 +8,9 @@ const API_URL = process.env.REACT_APP_API_URL
 function ViewFlights() {
 
   const [flights, setFlights] = useState([])
+  const [returnFlights, setReturnFlights] = useState([])
+  // The route of the round trip on screen, or null for a one-way search
+  const [roundTripRoute, setRoundTripRoute] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -15,7 +18,8 @@ function ViewFlights() {
     from: "",
     to: "",
     date: "",
-    roundTrip: false
+    roundTrip: false,
+    returnDate: ""
   })
 
   const [lastSearch, setLastSearch] = useState(null)
@@ -84,11 +88,18 @@ function ViewFlights() {
         from: search.from || "",
         to: search.to || "",
         date: search.date || "",
-        roundTrip: search.roundTrip || false
+        roundTrip: search.roundTrip || false,
+        returnDate: search.returnDate || ""
       })
 
       // Use flights returned by the backend
       setFlights(response.data.flights || [])
+      setReturnFlights(response.data.returnFlights || [])
+      setRoundTripRoute(
+        search.roundTrip && search.from && search.to
+          ? { from: search.from, to: search.to }
+          : null
+      )
 
       setLastSearch(search)
       setLoading(false)
@@ -136,12 +147,22 @@ function ViewFlights() {
       }
 
       // Add round trip option to the search request
-      params.append(
-        "roundTrip",
+      const roundTrip =
         queryParams.roundTrip !== undefined
           ? queryParams.roundTrip
           : filters.roundTrip
-      )
+
+      params.append("roundTrip", roundTrip)
+
+      // The return date only matters for a round trip
+      const returnDate = queryParams.returnDate || filters.returnDate
+
+      if (roundTrip && returnDate) {
+        params.append("returnDate", returnDate)
+      }
+
+      const from = queryParams.from || filters.from
+      const to = queryParams.to || filters.to
 
       const response = await axios.get(
         `${API_URL}/api/flights${
@@ -158,15 +179,24 @@ function ViewFlights() {
 
       // Use flights returned by the backend
       setFlights(response.data.flights || [])
+      setReturnFlights(response.data.returnFlights || [])
+      setRoundTripRoute(
+        roundTrip && from && to
+          ? { from: from.toUpperCase(), to: to.toUpperCase() }
+          : null
+      )
 
     } catch (err) {
       console.error("Error fetching flights:", err)
 
       setError(
+        err.response?.data?.message ||
         "Unable to load flights. Please try again."
       )
 
       setFlights([])
+      setReturnFlights([])
+      setRoundTripRoute(null)
 
     } finally {
       setLoading(false)
@@ -270,6 +300,79 @@ function ViewFlights() {
     }
   }
 
+  const renderFlightCard = (flight) => (
+    <div
+      key={flight.flightId}
+      className="flight-card"
+    >
+
+      <h3>
+        {flight.airline}
+      </h3>
+
+      <p>
+        <strong>
+          {flight.from} → {flight.to}
+        </strong>
+      </p>
+
+      <p>
+        {flight.departureDate}{" "}
+        {flight.departureTime} -{" "}
+        {flight.arrivalTime}
+      </p>
+
+      <p>
+        Duration: {flight.duration}
+      </p>
+
+      <p
+        style={{
+          fontSize: "18px",
+          fontWeight: "bold",
+          color: "#2c3e50"
+        }}
+      >
+        ${flight.price}
+      </p>
+
+      <button
+        onClick={() => addToCart(flight)}
+      >
+        Add to Cart
+      </button>
+
+      <button
+        onClick={() =>
+          toggleFavourite(flight)
+        }
+      >
+        {isFavourite(flight)
+          ? "♥ Favourited"
+          : "♡ Favourite"}
+      </button>
+
+      {isFavourite(flight) && (
+
+        <p
+          onClick={() =>
+            toggleFavourite(flight)
+          }
+          style={{
+            fontSize: "12px",
+            cursor: "pointer",
+            textDecoration: "underline",
+            marginTop: "5px"
+          }}
+        >
+          Remove from favourites
+        </p>
+
+      )}
+
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="page">
@@ -332,6 +435,10 @@ function ViewFlights() {
               ? ` on ${lastSearch.date}`
               : ""}
 
+            {lastSearch.roundTrip && lastSearch.returnDate
+              ? `, returning ${lastSearch.returnDate}`
+              : ""}
+
           </p>
         )}
 
@@ -376,6 +483,19 @@ function ViewFlights() {
 
           </label>
 
+          {filters.roundTrip && (
+
+            <input
+              type="date"
+              name="returnDate"
+              title="Return date"
+              value={filters.returnDate}
+              min={filters.date}
+              onChange={handleFilterChange}
+            />
+
+          )}
+
           <button type="submit">
             Search
           </button>
@@ -388,6 +508,12 @@ function ViewFlights() {
           </p>
         )}
 
+        {roundTripRoute && (
+          <h2 className="flights-title">
+            Outbound: {roundTripRoute.from} → {roundTripRoute.to}
+          </h2>
+        )}
+
         {flights.length === 0 ? (
 
           <p className="no-flights-message">
@@ -397,84 +523,31 @@ function ViewFlights() {
         ) : (
 
           <div className="flights-list">
-
-            {flights.map(flight => (
-
-              <div
-                key={flight.flightId}
-                className="flight-card"
-              >
-
-                <h3>
-                  {flight.airline}
-                </h3>
-
-                <p>
-                  <strong>
-                    {flight.from} → {flight.to}
-                  </strong>
-                </p>
-
-                <p>
-                  {flight.departureDate}{" "}
-                  {flight.departureTime} -{" "}
-                  {flight.arrivalTime}
-                </p>
-
-                <p>
-                  Duration: {flight.duration}
-                </p>
-
-                <p
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                    color: "#2c3e50"
-                  }}
-                >
-                  ${flight.price}
-                </p>
-
-                <button
-                  onClick={() => addToCart(flight)}
-                >
-                  Add to Cart
-                </button>
-
-                <button
-                  onClick={() =>
-                    toggleFavourite(flight)
-                  }
-                >
-                  {isFavourite(flight)
-                    ? "♥ Favourited"
-                    : "♡ Favourite"}
-                </button>
-
-                {isFavourite(flight) && (
-
-                  <p
-                    onClick={() =>
-                      toggleFavourite(flight)
-                    }
-                    style={{
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      marginTop: "5px"
-                    }}
-                  >
-                    Remove from favourites
-                  </p>
-
-                )}
-
-              </div>
-
-            ))}
-
+            {flights.map(renderFlightCard)}
           </div>
 
+        )}
+
+        {roundTripRoute && (
+          <>
+            <h2 className="flights-title">
+              Return: {roundTripRoute.to} → {roundTripRoute.from}
+            </h2>
+
+            {returnFlights.length === 0 ? (
+
+              <p className="no-flights-message">
+                No return flights found. Try a different return date.
+              </p>
+
+            ) : (
+
+              <div className="flights-list">
+                {returnFlights.map(renderFlightCard)}
+              </div>
+
+            )}
+          </>
         )}
 
         <div className="flights-footer">
