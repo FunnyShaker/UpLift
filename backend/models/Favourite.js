@@ -57,10 +57,11 @@ async function findForUser({ userId, email }) {
     .filter((favourite) => !userId || favourite.userId === userId);
 }
 
-/** Saves a flight as a favourite of the user. */
+/** Saves a flight as a favourite of the user and returns the new favourite. */
 async function create({ userId, flight }) {
   const userLink = process.env.NOCODB_FAVOURITES_USER_LINK_ID;
   if (!userLink) throw new Error("NOCODB_FAVOURITES_USER_LINK_ID is not set in .env");
+  const flightLink = process.env.NOCODB_FAVOURITES_FLIGHT_LINK_ID;
 
   const created = await createRecord("favourites", {
     [FIELDS.from]: flight.from,
@@ -70,7 +71,6 @@ async function create({ userId, flight }) {
   try {
     await linkRecord("favourites", userLink, created.Id, userId);
 
-    const flightLink = process.env.NOCODB_FAVOURITES_FLIGHT_LINK_ID;
     if (flightLink) {
       await linkRecord("favourites", flightLink, created.Id, flight.id);
     }
@@ -79,7 +79,13 @@ async function create({ userId, flight }) {
     throw err;
   }
 
-  return created.Id;
+  return {
+    id: created.Id,
+    from: flight.from,
+    to: flight.to,
+    userId,
+    flightRecordId: flightLink ? flight.id : null,
+  };
 }
 
 async function remove(id) {
