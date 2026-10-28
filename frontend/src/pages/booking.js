@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import axios from "axios"
@@ -6,17 +7,20 @@ import "../App.css"
 const API_URL = process.env.REACT_APP_API_URL
 
 function Booking() {
-
   const location = useLocation()
   const navigate = useNavigate()
 
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
-  const [passengerInfo, setPassengerInfo] = useState({
-    fullName: ""
-  })
+  // Start with one passenger.
+  const [passengers, setPassengers] = useState([
+    { id: 1, fullName: "" }
+  ])
 
+  const [nextPassengerId, setNextPassengerId] = useState(2)
+
+  // Store payment form information.
   const [paymentInfo, setPaymentInfo] = useState({
     cardholderName: "",
     cardNumber: "",
@@ -24,19 +28,24 @@ function Booking() {
     cvv: ""
   })
 
-  // Get the selected flight from the Cart page
+  // Get the actual flight selected on the previous page.
   const flight = location.state?.flight
 
+  // Log out and clear the current user's local cart.
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("token")
 
-      if (token) {
-        await axios.post(`${API_URL}/api/logout`, {}, {
-          headers: {
-            "Authorization": `Bearer ${token}`
+      if (token && API_URL) {
+        await axios.post(
+          `${API_URL}/api/logout`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           }
-        })
+        )
       }
     } catch (err) {
       console.error("Logout error:", err)
@@ -54,140 +63,166 @@ function Booking() {
     navigate("/")
   }
 
-  // Handle passenger information changes
-  const handlePassengerChange = (e) => {
-    setPassengerInfo({
-      ...passengerInfo,
-      [e.target.name]: e.target.value
-    })
-  }
-
-  // Handle payment information changes
-  const handlePaymentChange = (e) => {
-    setPaymentInfo({
-      ...paymentInfo,
-      [e.target.name]: e.target.value
-    })
-  }
-
-  // If no flight was selected
-  if (!flight) {
-    return (
-      <div className="page">
-
-        <div className="header">
-
-          <div className="logo">
-            Uplift
-          </div>
-
-          <button
-            className="header-logout"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-
-        </div>
-
-        <div className="content">
-
-          <div className="card booking-card">
-
-            <h1>No Flight Selected</h1>
-
-            <p>
-              Please select a flight before booking.
-            </p>
-
-            <button onClick={() => navigate("/flights")}>
-              Browse Flights
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
+  // Update the name of a specific passenger.
+  const handlePassengerChange = (id, value) => {
+    setPassengers((currentPassengers) =>
+      currentPassengers.map((passenger) =>
+        passenger.id === id
+          ? { ...passenger, fullName: value }
+          : passenger
+      )
     )
-  }
-
-  const handleConfirmBooking = async () => {
 
     setMessage("")
     setError("")
+  }
 
-    // Check passenger information
-    if (!passengerInfo.fullName) {
-      setError("Please enter the passenger's full name.")
+  // Add another passenger.
+  const handleAddPassenger = () => {
+    setPassengers((currentPassengers) => [
+      ...currentPassengers,
+      { id: nextPassengerId, fullName: "" }
+    ])
+
+    setNextPassengerId((id) => id + 1)
+    setMessage("")
+    setError("")
+  }
+
+  // Remove a passenger, but always keep at least one.
+  const handleRemovePassenger = (id) => {
+    if (passengers.length <= 1) {
+      setError("At least one passenger is required.")
       return
     }
 
-    // Check that all payment fields are filled
+    setPassengers((currentPassengers) =>
+      currentPassengers.filter((passenger) => passenger.id !== id)
+    )
+
+    setMessage("")
+    setError("")
+  }
+
+  // Update payment form fields.
+  const handlePaymentChange = (e) => {
+    const { name, value } = e.target
+
+    setPaymentInfo((currentInfo) => ({
+      ...currentInfo,
+      [name]: value
+    }))
+
+    setMessage("")
+    setError("")
+  }
+
+  // Use the selected flight's price for each passenger.
+  const pricePerPassenger = Number(flight?.price ?? 0)
+
+  // Recalculate the total whenever the passenger count changes.
+  const totalPrice = pricePerPassenger * passengers.length
+
+  // Confirm the booking.
+  const handleConfirmBooking = async () => {
+    setMessage("")
+    setError("")
+
+    // Make sure a valid flight price is available.
     if (
-      !paymentInfo.cardholderName ||
-      !paymentInfo.cardNumber ||
-      !paymentInfo.expiryDate ||
-      !paymentInfo.cvv
+      !flight ||
+      !Number.isFinite(pricePerPassenger) ||
+      pricePerPassenger <= 0
+    ) {
+      setError("The selected flight has an invalid price. Please select the flight again.")
+      return
+    }
+
+    // Ensure every passenger has a name.
+    const hasMissingName = passengers.some(
+      (passenger) => !passenger.fullName.trim()
+    )
+
+    if (hasMissingName) {
+      setError("Please enter the full name for every passenger.")
+      return
+    }
+
+    // Check that all payment fields are completed.
+    if (
+      !paymentInfo.cardholderName.trim() ||
+      !paymentInfo.cardNumber.trim() ||
+      !paymentInfo.expiryDate.trim() ||
+      !paymentInfo.cvv.trim()
     ) {
       setError("Please complete all payment fields.")
       return
     }
 
-    // Remove spaces from card number
+    // Remove spaces from the card number.
     const cardNumber = paymentInfo.cardNumber.replace(/\s/g, "")
 
-    // Check card number
     if (!/^\d{16}$/.test(cardNumber)) {
       setError("Please enter a valid 16-digit card number.")
       return
     }
 
-    // Check expiry date
     if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(paymentInfo.expiryDate)) {
       setError("Please enter a valid expiry date in MM/YY format.")
       return
     }
 
-    // Check CVV
     if (!/^\d{3,4}$/.test(paymentInfo.cvv)) {
       setError("Please enter a valid CVV.")
       return
     }
 
-    try {
+    // Ensure the API URL is configured.
+    if (!API_URL) {
+      setError("The API URL is not configured. Please check your frontend environment settings.")
+      return
+    }
 
+    try {
       const token = localStorage.getItem("token")
 
+      // Require the user to be logged in.
       if (!token) {
         navigate("/")
         return
       }
 
-      // The backend stores only the last 4 card digits; the CVV is never saved
+      // Send the selected flight and all passengers to the backend.
+      // The backend must support the passengers array.
       const response = await axios.post(
         `${API_URL}/api/bookings`,
         {
           flightId: flight.flightId,
-          fullName: passengerInfo.fullName,
+          passengers: passengers.map((passenger) => ({
+            fullName: passenger.fullName.trim()
+          })),
           payment: {
-            ...paymentInfo,
-            cardNumber
+            cardholderName: paymentInfo.cardholderName.trim(),
+            cardNumber,
+            expiryDate: paymentInfo.expiryDate,
+            cvv: paymentInfo.cvv
           }
         },
         {
           headers: {
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           }
         }
       )
 
+      const bookingId = response.data.booking?.bookingId
+
       setMessage(
-        `${response.data.message} Booking #${response.data.booking.bookingId}`
+        bookingId
+          ? `Booking confirmed! Booking #${bookingId}`
+          : response.data.message || "Booking confirmed successfully!"
       )
-
     } catch (err) {
-
       console.error("Booking error:", err)
 
       setError(
@@ -197,64 +232,85 @@ function Booking() {
     }
   }
 
-  return (
-    <div className="page">
+  // If no flight was passed from the previous page, ask the user to select one.
+  if (!flight) {
+    return (
+      <div className="page">
+        <div className="header">
+          <div className="logo">Uplift</div>
 
-      <div className="header">
-
-        <div className="logo">
-          Uplift
+          <button className="header-logout" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
 
-        <button
-          className="header-logout"
-          onClick={handleLogout}
-        >
+        <div className="content">
+          <div className="card booking-card">
+            <h1>No Flight Selected</h1>
+            <p>Please select a flight before booking.</p>
+
+            <button onClick={() => navigate("/flights")}>
+              Browse Flights
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="page">
+      <div className="header">
+        <div className="logo">Uplift</div>
+
+        <button className="header-logout" onClick={handleLogout}>
           Logout
         </button>
-
       </div>
 
       <div className="content">
-
         <div className="booking-layout">
 
-          {/* Passenger and Flight Information */}
-
+          {/* Passenger and flight information */}
           <div className="card booking-card">
-
             <h1>Confirm Your Booking</h1>
 
             <h2>Passenger Information</h2>
 
-            <div className="booking-form">
+            {passengers.map((passenger, index) => (
+              <div className="booking-form" key={passenger.id}>
+                <h3>Passenger {index + 1}</h3>
 
-              <input
-                type="text"
-                name="fullName"
-                placeholder="Full Name"
-                value={passengerInfo.fullName}
-                onChange={handlePassengerChange}
-              />
+                <input
+                  type="text"
+                  name={`fullName-${passenger.id}`}
+                  placeholder="Full Name"
+                  value={passenger.fullName}
+                  onChange={(e) =>
+                    handlePassengerChange(passenger.id, e.target.value)
+                  }
+                />
 
-            </div>
+                {passengers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePassenger(passenger.id)}
+                  >
+                    Remove Passenger
+                  </button>
+                )}
+              </div>
+            ))}
 
-            <button
-              type="button"
-              onClick={() =>
-                alert("Additional passenger feature coming soon.")
-              }
-            >
+            <button type="button" onClick={handleAddPassenger}>
               + Add Passenger
             </button>
 
             <h2>Flight Information</h2>
 
             <div className="flight-booking-info">
-
               <p>
-                <strong>Flight ID:</strong>{" "}
-                {flight.flightId}
+                <strong>Flight ID:</strong> {flight.flightId}
               </p>
 
               <h3>{flight.airline}</h3>
@@ -265,44 +321,31 @@ function Booking() {
                 </strong>
               </p>
 
-              <p>
-                Date: {flight.departureDate}
-              </p>
+              <p>Date: {flight.departureDate}</p>
+              <p>Departure: {flight.departureTime}</p>
+              <p>Arrival: {flight.arrivalTime}</p>
+              <p>Duration: {flight.duration}</p>
+              <p>Passengers: {passengers.length}</p>
 
               <p>
-                Departure: {flight.departureTime}
-              </p>
-
-              <p>
-                Arrival: {flight.arrivalTime}
-              </p>
-
-              <p>
-                Duration: {flight.duration}
-              </p>
-
-              <p>
-                Passengers: {flight.passengers}
+                <strong>
+                  Price per passenger: ${pricePerPassenger.toFixed(2)}
+                </strong>
               </p>
 
               <p>
                 <strong>
-                  Flight Price: ${flight.price}
+                  Total Price: ${totalPrice.toFixed(2)}
                 </strong>
               </p>
-
             </div>
-
           </div>
 
-          {/* Payment Information */}
-
+          {/* Payment information */}
           <div className="card booking-card">
-
             <h2>Payment Information</h2>
 
             <div className="payment-form">
-
               <input
                 type="text"
                 name="cardholderName"
@@ -334,19 +377,14 @@ function Booking() {
                 value={paymentInfo.cvv}
                 onChange={handlePaymentChange}
               />
-
             </div>
 
             {message && (
-              <p className="success-text">
-                {message}
-              </p>
+              <p className="success-text">{message}</p>
             )}
 
             {error && (
-              <p className="error-text">
-                {error}
-              </p>
+              <p className="error-text">{error}</p>
             )}
 
             {!message && (
@@ -358,13 +396,10 @@ function Booking() {
             <button onClick={() => navigate("/cart")}>
               Back to Cart
             </button>
-
           </div>
 
         </div>
-
       </div>
-
     </div>
   )
 }
