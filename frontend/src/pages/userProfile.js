@@ -1,141 +1,146 @@
 
-import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import "../userProfile.css"
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import "../userProfile.css";
 
-const API_URL = process.env.REACT_APP_API_URL
+const API_URL = process.env.REACT_APP_API_URL;
 
 function UserProfile() {
-  const [isEditing, setIsEditing] = useState(false)
-
-  // Profile information
+  // User profile information
   const [profile, setProfile] = useState({
     fullName: "",
-    email: "",
+    email: localStorage.getItem("userEmail") || "",
     phone: "",
     country: "",
     userType: "",
-  })
+  });
 
-  const [originalProfile, setOriginalProfile] = useState(null)
+  const [editing, setEditing] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  // Real bookings loaded from the backend
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState("");
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
 
-  // Booking information
-  const [bookings, setBookings] = useState([])
-  const [bookingsLoading, setBookingsLoading] = useState(true)
-  const [bookingsError, setBookingsError] = useState("")
-  const [bookingMessage, setBookingMessage] = useState("")
-  const [cancellingId, setCancellingId] = useState(null)
-
-  // Load the logged-in user's profile
+  // Load the user's profile
   useEffect(() => {
-    const getProfile = async () => {
+    const token = localStorage.getItem("token");
+
+    // Keep the profile page accessible if the token is missing.
+    if (!token) {
+      setProfileError("Please log in to load your profile information.");
+      return;
+    }
+
+    if (!API_URL) {
+      setProfileError("The API URL is not configured.");
+      return;
+    }
+
+    const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("token")
-
-        if (!token) {
-          throw new Error("Please log in to view your profile.")
-        }
-
         const response = await fetch(`${API_URL}/api/profile`, {
-          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        })
+        });
 
         if (!response.ok) {
-          throw new Error("Failed to load profile")
+          throw new Error("Could not load your profile.");
         }
 
-        const data = await response.json()
+        const data = await response.json();
 
-        setProfile(data)
-        setOriginalProfile(data)
-      } catch (err) {
-        setError(err.message || "Unable to load your profile information.")
-      } finally {
-        setLoading(false)
+        setProfile({
+          fullName: data.fullName || "",
+          email: data.email || localStorage.getItem("userEmail") || "",
+          phone: data.phone || data.phoneNumber || "",
+          country: data.country || "",
+          userType: data.userType || "",
+        });
+
+        setProfileError("");
+      } catch (error) {
+        setProfileError(error.message);
       }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // Load the user's actual bookings from the backend
+  const fetchBookings = useCallback(async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token || !API_URL) {
+      setBookingsError(
+        !token
+          ? "Please log in to view your bookings."
+          : "The API URL is not configured."
+      );
+      setBookingsLoading(false);
+      return;
     }
 
-    getProfile()
-  }, [])
+    setBookingsLoading(true);
+    setBookingsError("");
 
-  // Load the logged-in user's bookings
-  const fetchBookings = async () => {
     try {
-      setBookingsLoading(true)
-      setBookingsError("")
-
-      const token = localStorage.getItem("token")
-
-      if (!token) {
-        throw new Error("Please log in to view your bookings.")
-      }
-
       const response = await fetch(`${API_URL}/api/bookings`, {
-        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Unable to load your bookings.")
+        throw new Error("Could not load your bookings.");
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
-      setBookings(data.bookings || [])
-    } catch (err) {
-      setBookingsError(
-        err.message || "Unable to load your bookings."
-      )
+      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
+    } catch (error) {
+      setBookingsError(error.message);
     } finally {
-      setBookingsLoading(false)
+      setBookingsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchBookings()
-  }, [])
+    fetchBookings();
+  }, [fetchBookings]);
 
-  // Update profile information while typing
-  const handleChange = (e) => {
-    setProfile({
-      ...profile,
-      [e.target.name]: e.target.value,
-    })
-  }
+  // Update profile form fields
+  const handleProfileChange = (event) => {
+    const { name, value } = event.target;
+
+    setProfile((previousProfile) => ({
+      ...previousProfile,
+      [name]: value,
+    }));
+  };
 
   // Save profile changes
-  const handleSave = async () => {
-    setError("")
-    setSuccess("")
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
 
-    if (
-      !profile.fullName.trim() ||
-      !profile.phone.trim() ||
-      !profile.country.trim()
-    ) {
-      setError("Please fill in all required fields.")
-      return
+    const token = localStorage.getItem("token");
+
+    if (!token || !API_URL) {
+      setProfileError("You must be logged in to update your profile.");
+      return;
     }
 
-    const phonePattern = /^[0-9+\-() ]{7,20}$/
-
-    if (!phonePattern.test(profile.phone)) {
-      setError("Please enter a valid phone number.")
-      return
-    }
+    setSavingProfile(true);
+    setProfileError("");
+    setProfileMessage("");
 
     try {
-      const token = localStorage.getItem("token")
-
       const response = await fetch(`${API_URL}/api/profile`, {
         method: "PUT",
         headers: {
@@ -147,63 +152,50 @@ function UserProfile() {
           phone: profile.phone,
           country: profile.country,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to update profile")
+        throw new Error("Could not save your profile.");
       }
 
-      const updatedProfile = await response.json()
-
-      setProfile(updatedProfile)
-      setOriginalProfile(updatedProfile)
-      setIsEditing(false)
-      setSuccess("Profile updated successfully.")
-    } catch (err) {
-      setError("Unable to update your profile.")
+      setEditing(false);
+      setProfileMessage("Profile updated successfully.");
+    } catch (error) {
+      setProfileError(error.message);
+    } finally {
+      setSavingProfile(false);
     }
-  }
+  };
 
-  // Cancel editing and restore the original profile information
-  const handleCancel = () => {
-    if (originalProfile) {
-      setProfile(originalProfile)
-    }
-
-    setIsEditing(false)
-    setError("")
-    setSuccess("")
-  }
-
-  // Request cancellation of a booking
+  // Request cancellation from the backend
   const handleCancelBooking = async (booking) => {
+    const bookingId = booking.bookingId || booking.id;
+
+    if (!bookingId) {
+      setBookingMessage(
+        "This booking does not have an ID that can be used for cancellation."
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
-      "Are you sure you want to cancel this flight booking?"
-    )
+      "Are you sure you want to cancel this booking?"
+    );
 
-    if (!confirmed) {
-      return
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("token");
+
+    if (!token || !API_URL) {
+      setBookingMessage("Please log in before cancelling a booking.");
+      return;
     }
 
-    const token = localStorage.getItem("token")
-    const bookingId = booking.bookingId
-
-    if (!token) {
-      setBookingsError("Please log in again.")
-      return
-    }
-
-    if (bookingId === undefined || bookingId === null) {
-      setBookingsError("The booking ID is missing.")
-      return
-    }
+    setCancellingId(bookingId);
+    setBookingMessage("");
+    setBookingsError("");
 
     try {
-      setCancellingId(bookingId)
-      setBookingsError("")
-      setBookingMessage("")
-
-      // The backend must support this cancellation endpoint.
       const response = await fetch(
         `${API_URL}/api/bookings/${encodeURIComponent(bookingId)}/cancel`,
         {
@@ -212,347 +204,362 @@ function UserProfile() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
         }
-      )
+      );
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
+        const errorData = await response.json().catch(() => ({}));
 
         throw new Error(
-          data.message || "Unable to cancel this booking."
-        )
+          errorData.message ||
+            "Could not cancel this booking. The cancellation endpoint may not be available yet."
+        );
       }
 
-      // Update the local list after the backend confirms cancellation.
-      setBookings((currentBookings) =>
-        currentBookings.map((item) =>
-          item.bookingId === bookingId
-            ? { ...item, status: "cancelled" }
-            : item
-        )
-      )
+      setBookingMessage("Booking cancelled successfully.");
 
-      setBookingMessage(
-        `Booking #${bookingId} was cancelled successfully.`
-      )
-    } catch (err) {
-      setBookingsError(
-        err.message || "Unable to cancel this booking. Please try again."
-      )
+      // Reload bookings to reflect the backend's latest data.
+      await fetchBookings();
+    } catch (error) {
+      setBookingMessage(error.message);
     } finally {
-      setCancellingId(null)
+      setCancellingId(null);
     }
-  }
+  };
 
-  // Log out the user
+  // Log out
   const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem("token")
+    const token = localStorage.getItem("token");
+    const userEmail = localStorage.getItem("userEmail");
 
-      if (token) {
+    if (token && API_URL) {
+      try {
         await fetch(`${API_URL}/api/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        })
+        });
+      } catch (error) {
+        console.error("Logout request failed:", error);
       }
-    } catch (err) {
-      console.error("Logout error:", err)
     }
-
-    const userEmail = localStorage.getItem("userEmail")
 
     if (userEmail) {
-      localStorage.removeItem(`cart_${userEmail}`)
+      localStorage.removeItem(`cart_${userEmail}`);
     }
 
-    localStorage.removeItem("token")
-    localStorage.removeItem("userEmail")
+    localStorage.removeItem("token");
+    localStorage.removeItem("userEmail");
 
-    window.location.href = "/"
-  }
+    window.location.href = "/";
+  };
 
-  // Show loading message while the profile loads
-  if (loading) {
-    return (
-      <div className="profile-page">
-        <div className="profile-container">
-          <p>Loading profile...</p>
-        </div>
-      </div>
-    )
-  }
+  // Format departure information if available
+  const formatDeparture = (flight) => {
+    const date = flight?.departureDate || flight?.date;
+    const time = flight?.departureTime || flight?.time;
 
-  // Split bookings into active and cancelled lists
+    if (date && time) return `${date} at ${time}`;
+    if (date) return date;
+    if (time) return time;
+
+    return "Not available";
+  };
+
+  const getFlightName = (flight) => {
+    if (!flight) return "Flight details unavailable";
+
+    const airline = flight.airline || "Airline";
+    const flightNumber = flight.flightId || flight.flightNumber;
+
+    return flightNumber
+      ? `${airline} — ${flightNumber}`
+      : airline;
+  };
+
   const activeBookings = bookings.filter(
     (booking) =>
-      (booking.status || "active").toLowerCase() !== "cancelled"
-  )
+      !["cancelled", "canceled"].includes(
+        String(booking.status || "").toLowerCase()
+      )
+  );
 
-  const cancelledBookings = bookings.filter(
-    (booking) =>
-      (booking.status || "active").toLowerCase() === "cancelled"
-  )
+  const cancelledBookings = bookings.filter((booking) =>
+    ["cancelled", "canceled"].includes(
+      String(booking.status || "").toLowerCase()
+    )
+  );
 
   return (
-    <div className="profile-page">
-      {/* Header */}
+    <div className="profile-container">
       <div className="profile-header">
-        <div className="logo">Uplift</div>
-
-        <Link to="/flights" className="back-link">
-          Back to Flights
-        </Link>
-      </div>
-
-      <div className="profile-container">
         <h1>My Profile</h1>
 
-        <p className="profile-subtitle">
-          View and manage your account information
-        </p>
+        <button type="button" onClick={handleLogout}>
+          Logout
+        </button>
+      </div>
 
-        {error && <p className="error-message">{error}</p>}
-        {success && <p className="success-message">{success}</p>}
+      {/* Personal information */}
+      <section className="profile-card">
+        <h2>Personal Information</h2>
 
-        {/* Profile Summary */}
-        <div className="profile-card">
-          <div className="profile-picture">
-            <span>
-              {profile.fullName
-                ? profile.fullName
-                    .split(" ")
-                    .map((name) => name[0])
-                    .join("")
-                    .toUpperCase()
-                : "U"}
-            </span>
-          </div>
+        {profileMessage && (
+          <p role="status" className="success-message">
+            {profileMessage}
+          </p>
+        )}
 
-          <h2>{profile.fullName}</h2>
-          <p>{profile.email}</p>
+        {profileError && (
+          <p role="alert" className="error-message">
+            {profileError}
+          </p>
+        )}
 
-          {!isEditing ? (
+        {editing ? (
+          <form onSubmit={handleSaveProfile}>
+            <label htmlFor="fullName">Full Name</label>
+            <input
+              id="fullName"
+              name="fullName"
+              value={profile.fullName}
+              onChange={handleProfileChange}
+              required
+            />
+
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={profile.email}
+              readOnly
+            />
+
+            <label htmlFor="phone">Phone</label>
+            <input
+              id="phone"
+              name="phone"
+              value={profile.phone}
+              onChange={handleProfileChange}
+            />
+
+            <label htmlFor="country">Country</label>
+            <input
+              id="country"
+              name="country"
+              value={profile.country}
+              onChange={handleProfileChange}
+            />
+
+            <p>
+              <strong>Account Type:</strong>{" "}
+              {profile.userType || "Not specified"}
+            </p>
+
+            <button type="submit" disabled={savingProfile}>
+              {savingProfile ? "Saving..." : "Save Changes"}
+            </button>
+
             <button
-              className="edit-btn"
+              type="button"
               onClick={() => {
-                setError("")
-                setSuccess("")
-                setIsEditing(true)
+                setEditing(false);
+                setProfileError("");
+                setProfileMessage("");
+              }}
+            >
+              Cancel Editing
+            </button>
+          </form>
+        ) : (
+          <>
+            <p>
+              <strong>Full Name:</strong>{" "}
+              {profile.fullName || "Not available"}
+            </p>
+
+            <p>
+              <strong>Email:</strong>{" "}
+              {profile.email || "Not available"}
+            </p>
+
+            <p>
+              <strong>Phone:</strong>{" "}
+              {profile.phone || "Not available"}
+            </p>
+
+            <p>
+              <strong>Country:</strong>{" "}
+              {profile.country || "Not available"}
+            </p>
+
+            <p>
+              <strong>Account Type:</strong>{" "}
+              {profile.userType || "Not specified"}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(true);
+                setProfileError("");
+                setProfileMessage("");
               }}
             >
               Edit Profile
             </button>
-          ) : (
-            <div className="edit-buttons">
-              <button className="save-btn" onClick={handleSave}>
-                Save Changes
-              </button>
+          </>
+        )}
+      </section>
 
-              <button className="cancel-btn" onClick={handleCancel}>
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
+      {/* Existing My Trips section */}
+      <section className="profile-card">
+        <h2>My Trips</h2>
+        <p>View and manage your upcoming and previous flights.</p>
 
-        {/* Personal Information */}
-        <div className="information-card">
-          <h2>Personal Information</h2>
+        <Link to="/cart" className="trips-btn">
+          View My Trips
+        </Link>
+      </section>
 
-          <div className="profile-field">
-            <label>Full Name</label>
+      {/* Real bookings and cancellation */}
+      <section className="profile-card">
+        <h2>My Bookings</h2>
+        <p>View your bookings and cancel a reservation when needed.</p>
 
-            {isEditing ? (
-              <input
-                type="text"
-                name="fullName"
-                value={profile.fullName}
-                onChange={handleChange}
-                required
-              />
-            ) : (
-              <p>{profile.fullName}</p>
+        <button
+          type="button"
+          onClick={fetchBookings}
+          disabled={bookingsLoading}
+        >
+          {bookingsLoading ? "Loading..." : "Refresh Bookings"}
+        </button>
+
+        {bookingMessage && (
+          <p role="status" className="success-message">
+            {bookingMessage}
+          </p>
+        )}
+
+        {bookingsError && (
+          <p role="alert" className="error-message">
+            {bookingsError}
+          </p>
+        )}
+
+        {bookingsLoading ? (
+          <p>Loading your bookings...</p>
+        ) : (
+          <>
+            {activeBookings.length === 0 && (
+              <p>No active bookings found.</p>
             )}
-          </div>
 
-          <div className="profile-field">
-            <label>Email</label>
-            <p>{profile.email}</p>
-          </div>
+            {activeBookings.map((booking) => {
+              const flight = booking.flight || {};
+              const bookingId = booking.bookingId || booking.id;
+              const price = flight.price;
 
-          <div className="profile-field">
-            <label>Phone Number</label>
+              return (
+                <div className="booking-card" key={bookingId}>
+                  <h3>{getFlightName(flight)}</h3>
 
-            {isEditing ? (
-              <input
-                type="tel"
-                name="phone"
-                value={profile.phone}
-                onChange={handleChange}
-                required
-              />
-            ) : (
-              <p>{profile.phone}</p>
-            )}
-          </div>
+                  <p>
+                    <strong>Booking ID:</strong>{" "}
+                    {booking.bookingId || booking.id || "Not available"}
+                  </p>
 
-          <div className="profile-field">
-            <label>Country</label>
+                  <p>
+                    <strong>Passenger:</strong>{" "}
+                    {booking.fullName || "Not available"}
+                  </p>
 
-            {isEditing ? (
-              <input
-                type="text"
-                name="country"
-                value={profile.country}
-                onChange={handleChange}
-                required
-              />
-            ) : (
-              <p>{profile.country}</p>
-            )}
-          </div>
+                  <p>
+                    <strong>From:</strong>{" "}
+                    {flight.from || flight.origin || "Not available"}
+                  </p>
 
-          <div className="profile-field">
-            <label>Account Type</label>
-            <p>{profile.userType}</p>
-          </div>
-        </div>
+                  <p>
+                    <strong>To:</strong>{" "}
+                    {flight.to || flight.destination || "Not available"}
+                  </p>
 
-        {/* My Trips / Bookings */}
-        <div className="information-card">
-          <h2>My Trips</h2>
+                  <p>
+                    <strong>Departure:</strong>{" "}
+                    {formatDeparture(flight)}
+                  </p>
 
-          <p>View your booked flights and manage your reservations.</p>
+                  {price !== undefined && price !== null && (
+                    <p>
+                      <strong>Price:</strong> ${price}
+                    </p>
+                  )}
 
-          {bookingsError && (
-            <p className="error-message">{bookingsError}</p>
-          )}
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    {booking.status || "Active"}
+                  </p>
 
-          {bookingMessage && (
-            <p className="success-message">{bookingMessage}</p>
-          )}
+                  <button
+                    type="button"
+                    onClick={() => handleCancelBooking(booking)}
+                    disabled={
+                      cancellingId === bookingId ||
+                      !bookingId
+                    }
+                  >
+                    {cancellingId === bookingId
+                      ? "Cancelling..."
+                      : "Cancel Booking"}
+                  </button>
+                </div>
+              );
+            })}
 
-          {bookingsLoading ? (
-            <p>Loading your bookings...</p>
-          ) : (
-            <>
-              <h3>Active Bookings</h3>
+            {cancelledBookings.length > 0 && (
+              <>
+                <h3>Cancelled Bookings</h3>
 
-              {activeBookings.length === 0 ? (
-                <p>You have no active bookings.</p>
-              ) : (
-                activeBookings.map((booking) => {
-                  const flight = booking.flight || {}
+                {cancelledBookings.map((booking) => {
+                  const flight = booking.flight || {};
 
                   return (
                     <div
-                      className="profile-field"
-                      key={booking.bookingId}
+                      className="booking-card"
+                      key={booking.bookingId || booking.id}
                     >
-                      <h4>Booking #{booking.bookingId}</h4>
+                      <h3>{getFlightName(flight)}</h3>
 
                       <p>
-                        <strong>Passenger:</strong>{" "}
-                        {booking.fullName || "Not provided"}
-                      </p>
-
-                      <p>
-                        <strong>Airline:</strong>{" "}
-                        {flight.airline || "Not available"}
-                      </p>
-
-                      <p>
-                        <strong>Flight:</strong>{" "}
-                        {flight.flightId || flight.flightNumber || "Not available"}
+                        <strong>Booking ID:</strong>{" "}
+                        {booking.bookingId || booking.id || "Not available"}
                       </p>
 
                       <p>
                         <strong>From:</strong>{" "}
-                        {flight.from || "Not available"}
+                        {flight.from || flight.origin || "Not available"}
                       </p>
 
                       <p>
                         <strong>To:</strong>{" "}
-                        {flight.to || "Not available"}
-                      </p>
-
-                      <p>
-                        <strong>Departure date:</strong>{" "}
-                        {flight.departureDate || "Not available"}
-                      </p>
-
-                      <p>
-                        <strong>Departure time:</strong>{" "}
-                        {flight.departureTime || "Not available"}
-                      </p>
-
-                      {flight.price !== undefined && (
-                        <p>
-                          <strong>Price:</strong> {flight.price}
-                        </p>
-                      )}
-
-                      <button
-                        className="cancel-btn"
-                        onClick={() => handleCancelBooking(booking)}
-                        disabled={cancellingId === booking.bookingId}
-                      >
-                        {cancellingId === booking.bookingId
-                          ? "Cancelling..."
-                          : "Cancel Booking"}
-                      </button>
-                    </div>
-                  )
-                })
-              )}
-
-              {cancelledBookings.length > 0 && (
-                <>
-                  <h3>Cancelled Bookings</h3>
-
-                  {cancelledBookings.map((booking) => (
-                    <div
-                      className="profile-field"
-                      key={booking.bookingId}
-                    >
-                      <p>
-                        <strong>Booking:</strong> #{booking.bookingId}
-                      </p>
-
-                      <p>
-                        <strong>Passenger:</strong>{" "}
-                        {booking.fullName || "Not provided"}
+                        {flight.to || flight.destination || "Not available"}
                       </p>
 
                       <p>
                         <strong>Status:</strong> Cancelled
                       </p>
                     </div>
-                  ))}
-                </>
-              )}
-
-              <button
-                className="trips-btn"
-                onClick={fetchBookings}
-                disabled={bookingsLoading}
-              >
-                Refresh Bookings
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Logout */}
-        <button className="logout-btn" onClick={handleLogout}>
-          Log Out
-        </button>
-      </div>
+                  );
+                })}
+              </>
+            )}
+          </>
+        )}
+      </section>
     </div>
-  )
+  );
 }
 
-export default UserProfile
+export default UserProfile;
