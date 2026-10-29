@@ -278,6 +278,16 @@ function UserProfile() {
       : airline;
   };
 
+  const getPassengerNames = (booking) => {
+    const names = Array.isArray(booking.passengers)
+      ? booking.passengers
+          .map((passenger) => passenger?.fullName)
+          .filter((name) => typeof name === "string" && name.trim())
+      : [];
+
+    return names.length ? names.join(", ") : booking.fullName || "Not available";
+  };
+
   const activeBookings = bookings.filter(
     (booking) =>
       !["cancelled", "canceled"].includes(
@@ -472,8 +482,8 @@ function UserProfile() {
                   </p>
 
                   <p>
-                    <strong>Passenger:</strong>{" "}
-                    {booking.fullName || "Not available"}
+                    <strong>Passengers:</strong>{" "}
+                    {getPassengerNames(booking)}
                   </p>
 
                   <p>
@@ -535,6 +545,11 @@ function UserProfile() {
                       <p>
                         <strong>Booking ID:</strong>{" "}
                         {booking.bookingId || booking.id || "Not available"}
+                      </p>
+
+                      <p>
+                        <strong>Passengers:</strong>{" "}
+                        {getPassengerNames(booking)}
                       </p>
 
                       <p>

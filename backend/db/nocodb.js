@@ -27,6 +27,26 @@ const THROTTLE_DELAY_MS = 1000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Share one queue across routes so concurrent page loads do not create bursts.
+// In-flight GETs are shared only until completion; no user data is cached.
+let requestQueue = Promise.resolve();
+let nextRequestAt = 0;
+const pendingReads = new Map();
+const REQUEST_INTERVAL_MS = 350;
+
+function request(method, path, options = {}) {
+  const key = JSON.stringify([process.env.NOCODB_URL, process.env.NOCODB_TOKEN, path, options.query]);
+  if (method === "GET" && pendingReads.has(key)) return pendingReads.get(key);
+  const result = requestQueue.then(() => performRequest(method, path, options));
+  requestQueue = result.catch(() => {});
+  if (method === "GET") {
+    pendingReads.set(key, result);
+    const cleanup = () => pendingReads.delete(key);
+    result.then(cleanup, cleanup);
+  }
+  return result;
+}
+
 function tableId(table) {
   const envName = TABLE_ENV[table];
   const id = process.env[envName];
@@ -40,7 +60,7 @@ function recordsPath(table) {
   return `/api/v2/tables/${tableId(table)}/records`;
 }
 
-async function request(method, path, { query, body } = {}, attempt = 0) {
+async function performRequest(method, path, { query, body } = {}, attempt = 0) {
   const baseUrl = (process.env.NOCODB_URL || "").replace(/\/+$/, "");
   const token = process.env.NOCODB_TOKEN || "";
 
@@ -56,6 +76,8 @@ async function request(method, path, { query, body } = {}, attempt = 0) {
 
   let response;
   try {
+    await sleep(Math.max(0, nextRequestAt - Date.now()));
+    nextRequestAt = Date.now() + REQUEST_INTERVAL_MS;
     response = await fetch(url, {
       method,
       headers: {
@@ -69,8 +91,12 @@ async function request(method, path, { query, body } = {}, attempt = 0) {
   }
 
   if (response.status === 429 && attempt < THROTTLE_RETRIES) {
-    await sleep(THROTTLE_DELAY_MS * (attempt + 1));
-    return request(method, path, { query, body }, attempt + 1);
+    const retryAfter = response.headers.get("retry-after");
+    const retryMs = retryAfter == null ? 0 : /^\d+(\.\d+)?$/.test(retryAfter)
+      ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+    await response.text();
+    await sleep(Math.max(THROTTLE_DELAY_MS * (2 ** attempt), Number.isFinite(retryMs) ? retryMs : 0));
+    return performRequest(method, path, { query, body }, attempt + 1);
   }
 
   const text = await response.text();

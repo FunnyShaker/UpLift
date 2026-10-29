@@ -42,10 +42,17 @@ function validatePayment({ cardholderName, cardNumber, expiryDate, cvv }) {
 
 // CREATE a booking and its payment for the logged-in user
 router.post("/", verifyToken, async (req, res) => {
-  const flightId = trimmed(req.body.flightId);
-  const fullName = trimmed(req.body.fullName);
+  const body = req.body || {};
+  const flightId = typeof body.flightId === "string" ? body.flightId.trim() : "";
+  const inputPassengers = body.passengers === undefined ? [{ fullName: body.fullName }] : body.passengers;
+  if (!Array.isArray(inputPassengers) || inputPassengers.length < 1 || inputPassengers.length > 50 ||
+      inputPassengers.some((p) => !p || typeof p.fullName !== "string" || !p.fullName.trim() || p.fullName.trim().length > 200)) {
+    return res.status(400).json({ message: "Provide 1 to 50 passengers, each with a fullName of 1 to 200 characters." });
+  }
+  const passengers = inputPassengers.map((p) => ({ fullName: p.fullName.trim() }));
+  const fullName = passengers[0].fullName;
 
-  const payment = req.body.payment || {};
+  const payment = body.payment || {};
   const cardholderName = trimmed(payment.cardholderName);
   const cardNumber = trimmed(payment.cardNumber).replace(/\s/g, "");
   const expiryDate = trimmed(payment.expiryDate);
@@ -64,7 +71,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 
   try {
-    const user = await User.findByEmail(req.user.email);
+    const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -78,6 +85,7 @@ router.post("/", verifyToken, async (req, res) => {
       userId: user.id,
       flightRecordId: flight.id,
       fullName,
+      passengers,
     });
 
     // A booking without its payment is not a booking - undo it if the payment
@@ -101,6 +109,9 @@ router.post("/", verifyToken, async (req, res) => {
       booking: {
         bookingId: booking.bookingId,
         fullName: booking.fullName,
+        passengers: booking.passengers,
+        status: booking.status,
+        cancelledAt: booking.cancelledAt,
         flight: flight,
         payment: {
           paymentId: savedPayment.paymentId,
@@ -119,6 +130,9 @@ router.post("/", verifyToken, async (req, res) => {
 // GET the logged-in user's bookings, each with its flight
 router.get("/", verifyToken, async (req, res) => {
   try {
+    if (req.query.status !== undefined && !["Active", "Cancelled"].includes(req.query.status)) {
+      return res.status(400).json({ message: "status must be Active or Cancelled." });
+    }
     const bookings = await Booking.findForUser({
       userId: req.user.userId,
       email: req.user.email,
@@ -129,14 +143,20 @@ router.get("/", verifyToken, async (req, res) => {
     for (const booking of bookings) {
       const id = booking.flightRecordId;
       if (id && !flights.has(id)) {
-        flights.set(id, await Flight.findById(id).catch(() => null));
+        flights.set(id, await Flight.findById(id).catch((err) => {
+          if (err.status === 404) return null;
+          throw err;
+        }));
       }
     }
 
-    const result = bookings.map((booking) => ({
+    const result = bookings.filter((booking) => !req.query.status || booking.status === req.query.status).map((booking) => ({
       bookingId: booking.bookingId,
       fullName: booking.fullName,
       createdAt: booking.createdAt,
+      passengers: booking.passengers,
+      status: booking.status,
+      cancelledAt: booking.cancelledAt,
       flight: flights.get(booking.flightRecordId) || null,
     }));
 
@@ -147,8 +167,55 @@ router.get("/", verifyToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Error in GET /api/bookings:", err);
+    if (err.status === 429) {
+      return res.status(503).json({ message: "The database is busy. Please wait a moment and reload your bookings." });
+    }
     res.status(500).json({ message: "Error retrieving bookings", error: err.message });
   }
 });
+
+// Keep historical reservations and their payment/user/flight links intact.
+async function cancelBooking(req, res) {
+  if (!/^[1-9]\d*$/.test(req.params.bookingId)) {
+    return res.status(400).json({ message: "A positive integer booking ID is required." });
+  }
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(401).json({ message: "User no longer exists." });
+    const booking = await Booking.findByBookingId(req.params.bookingId);
+    // Do not disclose another user's reservation.
+    if (!booking || booking.userId == null || String(booking.userId) !== String(user.id)) {
+      return res.status(404).json({ message: "Booking not found." });
+    }
+    if (booking.status !== "Active") {
+      return res.status(409).json({ message: "Only active bookings can be cancelled." });
+    }
+    const flight = await Flight.findById(booking.flightRecordId);
+    if (!flight) {
+      return res.status(409).json({ message: "The booking's linked flight could not be found." });
+    }
+    // Dates in this project have no airport timezone; use UTC consistently.
+    const departure = Date.parse(`${flight.departureDate}T${flight.departureTime}:00Z`);
+    if (!Number.isFinite(departure)) {
+      return res.status(409).json({ message: "The flight has an invalid departure date or time." });
+    }
+    if (departure <= Date.now()) {
+      return res.status(409).json({ message: "This flight has already departed, so the booking cannot be cancelled." });
+    }
+    const cancelled = await Booking.cancel(booking);
+    return res.json({ message: "Booking cancelled successfully.", booking: {
+      bookingId: cancelled.bookingId, status: cancelled.status, cancelledAt: cancelled.cancelledAt,
+    } });
+  } catch (err) {
+    console.error("Error cancelling booking:", err);
+    if (err.status === 429) {
+      return res.status(503).json({ message: "The database is busy. Please wait a moment and try cancelling again." });
+    }
+    return res.status(500).json({ message: "Unable to cancel the booking." });
+  }
+}
+
+router.post("/:bookingId/cancel", verifyToken, cancelBooking);
+router.patch("/:bookingId/cancel", verifyToken, cancelBooking);
 
 module.exports = router;

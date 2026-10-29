@@ -1,5 +1,7 @@
 const {
   listRecords,
+  findRecord,
+  updateRecord,
   createRecord,
   deleteRecord,
   linkRecord,
@@ -18,6 +20,9 @@ const FIELDS = {
   fullName: "full name",
   user: "user",
   flight: "flight",
+  status: "booking status",
+  cancelledAt: "cancelled at",
+  passengers: "passengers",
 };
 
 /** Link field ids, from the Bookings table's API Snippet (see .env.example). */
@@ -39,6 +44,8 @@ function linkedId(value) {
 }
 
 function toBooking(record) {
+  const stored = record[FIELDS.passengers];
+  const passengers = stored ? (typeof stored === "string" ? JSON.parse(stored) : stored) : [{ fullName: record[FIELDS.fullName] || "" }];
   return {
     id: record.Id,
     bookingId: record[FIELDS.bookingId] ?? record.Id,
@@ -46,6 +53,9 @@ function toBooking(record) {
     userId: linkedId(record[FIELDS.user]),
     flightRecordId: linkedId(record[FIELDS.flight]),
     createdAt: record.CreatedAt,
+    status: record[FIELDS.status] || "Active",
+    cancelledAt: record[FIELDS.cancelledAt] || null,
+    passengers,
   };
 }
 
@@ -57,15 +67,19 @@ function linkFieldId(name) {
 }
 
 /**
- * Creates a booking for one passenger on one flight and links it to the user
+ * Creates a booking for one or more passengers and links it to the user
  * and the flight. If linking fails the half-made row is removed, so a booking
  * never exists without its owner.
  */
-async function create({ userId, flightRecordId, fullName }) {
+async function create({ userId, flightRecordId, fullName, passengers = [{ fullName }] }) {
   const userLink = linkFieldId("user");
   const flightLink = linkFieldId("flight");
 
-  const created = await createRecord("bookings", { [FIELDS.fullName]: fullName });
+  const created = await createRecord("bookings", {
+    [FIELDS.fullName]: fullName,
+    [FIELDS.status]: "Active",
+    [FIELDS.passengers]: passengers,
+  });
 
   try {
     await linkRecord("bookings", userLink, created.Id, userId);
@@ -81,6 +95,9 @@ async function create({ userId, flightRecordId, fullName }) {
     fullName,
     userId,
     flightRecordId,
+    status: "Active",
+    cancelledAt: null,
+    passengers,
   };
 }
 
@@ -106,7 +123,23 @@ async function findForUser({ userId, email }) {
 
   return records
     .map(toBooking)
-    .filter((booking) => !userId || booking.userId === userId);
+    .filter((booking) => userId != null && String(booking.userId) === String(userId));
 }
 
-module.exports = { FIELDS, LINKS, create, remove, findForUser, toBooking };
+async function findByBookingId(bookingId) {
+  const record = await findRecord("bookings", {
+    where: whereEquals([[FIELDS.bookingId, bookingId]]),
+  });
+  return record ? toBooking(record) : null;
+}
+
+async function cancel(booking) {
+  const cancelledAt = new Date().toISOString();
+  await updateRecord("bookings", booking.id, {
+    [FIELDS.status]: "Cancelled",
+    [FIELDS.cancelledAt]: cancelledAt,
+  });
+  return { ...booking, status: "Cancelled", cancelledAt };
+}
+
+module.exports = { FIELDS, LINKS, create, remove, findForUser, toBooking, findByBookingId, cancel };
