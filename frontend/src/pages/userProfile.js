@@ -270,12 +270,17 @@ function UserProfile() {
         );
       }
 
-      setBookingMessage("Booking cancelled successfully.");
-
       // Reload bookings and points to reflect the backend's latest data.
       await Promise.all([fetchBookings(), fetchPoints()]);
+
+      setBookingMessage("Booking cancelled successfully.");
     } catch (error) {
-      setBookingMessage(error.message);
+      // Show the backend's reason (e.g. flight already departed) as an error.
+      setBookingsError(
+        error instanceof TypeError
+          ? "Could not reach the server. Please try again."
+          : error.message
+      );
     } finally {
       setCancellingId(null);
     }
@@ -340,6 +345,17 @@ function UserProfile() {
       : [];
 
     return names.length ? names.join(", ") : booking.fullName || "Not available";
+  };
+
+  // Same rule as the backend: departure in UTC, and only future flights can be cancelled.
+  const canCancel = (flight) => {
+    if (!flight?.departureDate || !flight?.departureTime) return false;
+
+    const departure = Date.parse(
+      `${flight.departureDate}T${flight.departureTime}:00Z`
+    );
+
+    return Number.isFinite(departure) && departure > Date.now();
   };
 
   const formatDate = (value) => {
@@ -631,18 +647,26 @@ function UserProfile() {
                     {booking.status || "Active"}
                   </p>
 
-                  <button
-                    type="button"
-                    onClick={() => handleCancelBooking(booking)}
-                    disabled={
-                      cancellingId === bookingId ||
-                      !bookingId
-                    }
-                  >
-                    {cancellingId === bookingId
-                      ? "Cancelling..."
-                      : "Cancel Booking"}
-                  </button>
+                  {canCancel(booking.flight) ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelBooking(booking)}
+                      disabled={
+                        cancellingId === bookingId ||
+                        !bookingId
+                      }
+                    >
+                      {cancellingId === bookingId
+                        ? "Cancelling..."
+                        : "Cancel Booking"}
+                    </button>
+                  ) : (
+                    <p className="booking-note">
+                      {booking.flight
+                        ? "This flight has already departed, so the booking cannot be cancelled."
+                        : "Flight details are unavailable, so this booking cannot be cancelled online."}
+                    </p>
+                  )}
                 </div>
               );
             })}
