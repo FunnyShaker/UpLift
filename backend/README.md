@@ -77,6 +77,7 @@ Authenticated routes expect `Authorization: Bearer <token>`.
 | `PUT` | `/api/profile` | yes | Updates `fullName`, `country`, `phone`; returns the profile |
 | `POST` | `/api/bookings` | yes | Books a flight and records its payment, returns `{ booking }` |
 | `GET` | `/api/bookings` | yes | `{ count, bookings: [...] }`, each with its `flight` |
+| `GET` | `/api/loyalty` | yes | `{ balance, history: [{ bookingId, date, points, status }] }`; balance counts Active bookings only, cancelled ones show as `Removed` |
 | `GET` | `/api/favourites` | yes | `{ count, flights: [...] }` the user has favourited |
 | `POST` | `/api/favourites` | yes | Body `{ flightId }`; returns the updated favourites |
 | `DELETE` | `/api/favourites/:flightId` | yes | Returns the updated favourites |

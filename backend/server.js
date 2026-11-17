@@ -8,6 +8,7 @@ const profileRoutes = require('./routes/profile')
 const searchesRoutes = require('./routes/searches')
 const bookingsRoutes = require('./routes/bookings')
 const favouritesRoutes = require('./routes/favourites')
+const loyaltyRoutes = require('./routes/loyalty')
 const User = require('./models/User')
 const { verifyToken } = require('./middleware/auth')
 const { ping } = require('./db/nocodb')
@@ -37,6 +38,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/searches', searchesRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/favourites', favouritesRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api', authRoutes);
 
 // Health check - confirms the backend can talk to NocoDB

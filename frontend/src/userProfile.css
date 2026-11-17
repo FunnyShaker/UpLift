@@ -196,3 +196,49 @@
   background: #ddd;
   color: #333;
 }
+
+
+/* LOYALTY POINTS */
+
+.points-balance {
+  font-size: 18px;
+}
+
+.points-balance strong {
+  font-size: 32px;
+  color: #222;
+}
+
+.points-history {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.points-history th,
+.points-history td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.points-history th {
+  color: #333;
+}
+
+.points-history td {
+  color: #555;
+}
+
+.points-removed td {
+  color: #999;
+}
+
+.points-removed .points-value {
+  text-decoration: line-through;
+}
+
+.points-note {
+  display: block;
+  font-size: 13px;
+}

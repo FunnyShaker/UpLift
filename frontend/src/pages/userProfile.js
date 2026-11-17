@@ -27,6 +27,11 @@ function UserProfile() {
   const [bookingMessage, setBookingMessage] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
 
+  // Loyalty points balance and history
+  const [points, setPoints] = useState({ balance: 0, history: [] });
+  const [pointsLoading, setPointsLoading] = useState(true);
+  const [pointsError, setPointsError] = useState("");
+
   // Load the user's profile
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -114,6 +119,55 @@ function UserProfile() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  // Load the user's loyalty points balance and history
+  const fetchPoints = useCallback(async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token || !API_URL) {
+      setPointsError(
+        !token
+          ? "Please log in to view your loyalty points."
+          : "The API URL is not configured."
+      );
+      setPointsLoading(false);
+      return;
+    }
+
+    setPointsLoading(true);
+    setPointsError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/loyalty`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not load your loyalty points. Please try again later.");
+      }
+
+      const data = await response.json();
+
+      setPoints({
+        balance: Number(data.balance) || 0,
+        history: Array.isArray(data.history) ? data.history : [],
+      });
+    } catch (error) {
+      setPointsError(
+        error instanceof TypeError
+          ? "Could not load your loyalty points. Please try again later."
+          : error.message
+      );
+    } finally {
+      setPointsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPoints();
+  }, [fetchPoints]);
 
   // Update profile form fields
   const handleProfileChange = (event) => {
@@ -218,8 +272,8 @@ function UserProfile() {
 
       setBookingMessage("Booking cancelled successfully.");
 
-      // Reload bookings to reflect the backend's latest data.
-      await fetchBookings();
+      // Reload bookings and points to reflect the backend's latest data.
+      await Promise.all([fetchBookings(), fetchPoints()]);
     } catch (error) {
       setBookingMessage(error.message);
     } finally {
@@ -286,6 +340,14 @@ function UserProfile() {
       : [];
 
     return names.length ? names.join(", ") : booking.fullName || "Not available";
+  };
+
+  const formatDate = (value) => {
+    const date = value ? new Date(value) : null;
+
+    return date && !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString()
+      : "Not available";
   };
 
   const activeBookings = bookings.filter(
@@ -432,6 +494,63 @@ function UserProfile() {
         <Link to="/cart" className="trips-btn">
           View My Trips
         </Link>
+      </section>
+
+      {/* Loyalty points */}
+      <section className="profile-card">
+        <h2>Loyalty Points</h2>
+        <p>Earn 1 point for every $1 you spend on bookings.</p>
+
+        {pointsError ? (
+          <p role="alert" className="error-message">
+            {pointsError}
+          </p>
+        ) : pointsLoading ? (
+          <p>Loading your points...</p>
+        ) : (
+          <>
+            <p className="points-balance">
+              <strong>{points.balance.toLocaleString()}</strong> points
+            </p>
+
+            {points.history.length === 0 ? (
+              <p>You have no loyalty points yet. Book a flight to start earning.</p>
+            ) : (
+              <table className="points-history">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Booking</th>
+                    <th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {points.history.map((entry) => {
+                    const removed = entry.status === "Removed";
+
+                    return (
+                      <tr
+                        key={entry.bookingId}
+                        className={removed ? "points-removed" : undefined}
+                      >
+                        <td>{formatDate(entry.date)}</td>
+                        <td>#{entry.bookingId}</td>
+                        <td>
+                          <span className="points-value">+{entry.points}</span>
+                          {removed && (
+                            <span className="points-note">
+                              Removed (booking cancelled)
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
       </section>
 
       {/* Real bookings and cancellation */}

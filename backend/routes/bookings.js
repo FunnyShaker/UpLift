@@ -81,11 +81,15 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Flight not found or no longer available." });
     }
 
+    // Loyalty points: 1 per $1 of the booking total (price x passengers), rounded down.
+    // They are stored on the booking itself, so the balance is derived from bookings.
+    const total = flight.price * passengers.length;
     const booking = await Booking.create({
       userId: user.id,
       flightRecordId: flight.id,
       fullName,
       passengers,
+      pointsEarned: Booking.pointsForTotal(total),
     });
 
     // A booking without its payment is not a booking - undo it if the payment
@@ -112,6 +116,7 @@ router.post("/", verifyToken, async (req, res) => {
         passengers: booking.passengers,
         status: booking.status,
         cancelledAt: booking.cancelledAt,
+        pointsEarned: booking.pointsEarned,
         flight: flight,
         payment: {
           paymentId: savedPayment.paymentId,
@@ -157,6 +162,7 @@ router.get("/", verifyToken, async (req, res) => {
       passengers: booking.passengers,
       status: booking.status,
       cancelledAt: booking.cancelledAt,
+      pointsEarned: booking.pointsEarned,
       flight: flights.get(booking.flightRecordId) || null,
     }));
 
@@ -205,6 +211,8 @@ async function cancelBooking(req, res) {
     const cancelled = await Booking.cancel(booking);
     return res.json({ message: "Booking cancelled successfully.", booking: {
       bookingId: cancelled.bookingId, status: cancelled.status, cancelledAt: cancelled.cancelledAt,
+      // Points stay stored on the booking; they just stop counting toward the balance.
+      pointsRemoved: cancelled.pointsEarned,
     } });
   } catch (err) {
     console.error("Error cancelling booking:", err);
