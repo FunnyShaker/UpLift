@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
@@ -6,10 +7,8 @@ import "../App.css"
 const API_URL = process.env.REACT_APP_API_URL
 
 function ViewFlights() {
-
   const [flights, setFlights] = useState([])
   const [returnFlights, setReturnFlights] = useState([])
-  // The route of the round trip on screen, or null for a one-way search
   const [roundTripRoute, setRoundTripRoute] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -22,22 +21,72 @@ function ViewFlights() {
     returnDate: ""
   })
 
+  // Flight preference filters
+  const [selectedAirlines, setSelectedAirlines] = useState([])
+  const [selectedSeat, setSelectedSeat] = useState("")
+  const [selectedCabinClass, setSelectedCabinClass] = useState("")
+
   const [lastSearch, setLastSearch] = useState(null)
   const [favouriteIds, setFavouriteIds] = useState([])
-  // Flight ID whose favourite is being saved, so a second click is ignored
   const [savingFavourite, setSavingFavourite] = useState(null)
+
   const navigate = useNavigate()
+
+  // Apply all selected filters to a flight list
+  const applyFlightFilters = (flightList) => {
+    return flightList.filter(flight => {
+      const matchesAirline =
+        selectedAirlines.length === 0 ||
+        selectedAirlines.includes(flight.airline)
+
+      const matchesSeat =
+        !selectedSeat ||
+        (flight.availableSeatPreferences || []).includes(selectedSeat)
+
+      const matchesCabin =
+        !selectedCabinClass ||
+        (flight.availableCabinClasses || []).includes(selectedCabinClass)
+
+      return matchesAirline && matchesSeat && matchesCabin
+    })
+  }
+
+  // Filter outbound and return flights
+  const filteredFlights = applyFlightFilters(flights)
+  const filteredReturnFlights = applyFlightFilters(returnFlights)
+
+  // Add or remove an airline from the selected filters
+  const handleAirlineChange = (airline) => {
+    setSelectedAirlines(previous => {
+      if (previous.includes(airline)) {
+        return previous.filter(item => item !== airline)
+      }
+
+      return [...previous, airline]
+    })
+  }
+
+  // Clear all preference filters
+  const clearAllFilters = () => {
+    setSelectedAirlines([])
+    setSelectedSeat("")
+    setSelectedCabinClass("")
+  }
 
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("token")
 
       if (token) {
-        await axios.post(`${API_URL}/api/logout`, {}, {
-          headers: {
-            "Authorization": `Bearer ${token}`
+        await axios.post(
+          `${API_URL}/api/logout`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           }
-        })
+        )
       }
     } catch (err) {
       console.error("Logout error:", err)
@@ -60,7 +109,7 @@ function ViewFlights() {
     loadFavourites()
   }, [])
 
-  // Open on the flights for whatever the user searched last time
+  // Load the user's most recent search
   const loadLastSearch = async () => {
     try {
       const token = localStorage.getItem("token")
@@ -74,7 +123,7 @@ function ViewFlights() {
         `${API_URL}/api/searches/latest`,
         {
           headers: {
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           }
         }
       )
@@ -94,9 +143,9 @@ function ViewFlights() {
         returnDate: search.returnDate || ""
       })
 
-      // Use flights returned by the backend
       setFlights(response.data.flights || [])
       setReturnFlights(response.data.returnFlights || [])
+
       setRoundTripRoute(
         search.roundTrip && search.from && search.to
           ? { from: search.from, to: search.to }
@@ -112,6 +161,7 @@ function ViewFlights() {
     }
   }
 
+  // Fetch flights from the backend
   const fetchFlights = async (queryParams = {}) => {
     try {
       setLoading(true)
@@ -148,7 +198,6 @@ function ViewFlights() {
         )
       }
 
-      // Add round trip option to the search request
       const roundTrip =
         queryParams.roundTrip !== undefined
           ? queryParams.roundTrip
@@ -156,8 +205,8 @@ function ViewFlights() {
 
       params.append("roundTrip", roundTrip)
 
-      // The return date only matters for a round trip
-      const returnDate = queryParams.returnDate || filters.returnDate
+      const returnDate =
+        queryParams.returnDate || filters.returnDate
 
       if (roundTrip && returnDate) {
         params.append("returnDate", returnDate)
@@ -174,17 +223,20 @@ function ViewFlights() {
         }`,
         {
           headers: {
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           }
         }
       )
 
-      // Use flights returned by the backend
       setFlights(response.data.flights || [])
       setReturnFlights(response.data.returnFlights || [])
+
       setRoundTripRoute(
         roundTrip && from && to
-          ? { from: from.toUpperCase(), to: to.toUpperCase() }
+          ? {
+              from: from.toUpperCase(),
+              to: to.toUpperCase()
+            }
           : null
       )
 
@@ -220,6 +272,7 @@ function ViewFlights() {
     fetchFlights(filters)
   }
 
+  // Add a flight to the shopping cart
   const addToCart = (flight) => {
     const userEmail = localStorage.getItem("userEmail")
     const cartKey = `cart_${userEmail}`
@@ -251,7 +304,7 @@ function ViewFlights() {
         `${API_URL}/api/favourites`,
         {
           headers: {
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`
           }
         }
       )
@@ -280,7 +333,7 @@ function ViewFlights() {
       const token = localStorage.getItem("token")
 
       const headers = {
-        "Authorization": `Bearer ${token}`
+        Authorization: `Bearer ${token}`
       }
 
       const response = isFavourite(flight)
@@ -302,24 +355,24 @@ function ViewFlights() {
 
     } catch (err) {
       console.error("Error updating favourites:", err)
+
       alert(
         err.response?.data?.message ||
         "Unable to update favourites. Please try again."
       )
+
     } finally {
       setSavingFavourite(null)
     }
   }
 
+  // Display an individual flight
   const renderFlightCard = (flight) => (
     <div
       key={flight.flightId}
       className="flight-card"
     >
-
-      <h3>
-        {flight.airline}
-      </h3>
+      <h3>{flight.airline}</h3>
 
       <p>
         <strong>
@@ -354,9 +407,7 @@ function ViewFlights() {
       </button>
 
       <button
-        onClick={() =>
-          toggleFavourite(flight)
-        }
+        onClick={() => toggleFavourite(flight)}
         disabled={savingFavourite !== null}
       >
         {savingFavourite === flight.flightId
@@ -367,11 +418,8 @@ function ViewFlights() {
       </button>
 
       {isFavourite(flight) && (
-
         <p
-          onClick={() =>
-            toggleFavourite(flight)
-          }
+          onClick={() => toggleFavourite(flight)}
           style={{
             fontSize: "12px",
             cursor: "pointer",
@@ -381,44 +429,28 @@ function ViewFlights() {
         >
           Remove from favourites
         </p>
-
       )}
-
     </div>
   )
 
   if (loading) {
     return (
       <div className="page">
-
         <div className="header">
-
-          <div className="logo">
-            Uplift
-          </div>
-
+          <div className="logo">Uplift</div>
         </div>
 
         <div className="flights-container">
-
-          <h2>
-            Loading flights...
-          </h2>
-
+          <h2>Loading flights...</h2>
         </div>
-
       </div>
     )
   }
 
   return (
     <div className="page">
-
       <div className="header">
-
-        <div className="logo">
-          Uplift
-        </div>
+        <div className="logo">Uplift</div>
 
         <button
           className="header-logout"
@@ -426,22 +458,18 @@ function ViewFlights() {
         >
           Logout
         </button>
-
       </div>
 
       <div className="flights-container">
-
         <h1 className="flights-title">
           Available Flights
         </h1>
 
         {lastSearch && (
           <p className="last-search-note">
-
             Showing results from your last search
 
-            {lastSearch.from &&
-            lastSearch.to
+            {lastSearch.from && lastSearch.to
               ? `: ${lastSearch.from} → ${lastSearch.to}`
               : ""}
 
@@ -452,15 +480,14 @@ function ViewFlights() {
             {lastSearch.roundTrip && lastSearch.returnDate
               ? `, returning ${lastSearch.returnDate}`
               : ""}
-
           </p>
         )}
 
+        {/* Flight search form */}
         <form
           onSubmit={handleFilterSubmit}
           className="filter-form"
         >
-
           <input
             type="text"
             name="from"
@@ -485,20 +512,16 @@ function ViewFlights() {
           />
 
           <label className="round-trip-option">
-
             <input
               type="checkbox"
               name="roundTrip"
               checked={filters.roundTrip}
               onChange={handleFilterChange}
             />
-
             Round Trip
-
           </label>
 
           {filters.roundTrip && (
-
             <input
               type="date"
               name="returnDate"
@@ -507,14 +530,116 @@ function ViewFlights() {
               min={filters.date}
               onChange={handleFilterChange}
             />
-
           )}
 
           <button type="submit">
             Search
           </button>
-
         </form>
+
+        {/* Flight preference filters */}
+        <div className="flight-preferences">
+          <h2>Filter Flights</h2>
+
+          {/* Airline filter */}
+          <div className="filter-group">
+            <div className="filter-heading">
+              <strong>Airline</strong>
+
+              <button
+                type="button"
+                onClick={() => setSelectedAirlines([])}
+                disabled={selectedAirlines.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+
+            <div className="filter-options">
+              {[...new Set(flights.map(flight => flight.airline))]
+                .filter(Boolean)
+                .map(airline => (
+                  <label key={airline}>
+                    <input
+                      type="checkbox"
+                      checked={selectedAirlines.includes(airline)}
+                      onChange={() => handleAirlineChange(airline)}
+                    />
+                    {airline}
+                  </label>
+                ))}
+            </div>
+
+            <small>
+              Select one or more airlines. Leave all unchecked to show every airline.
+            </small>
+          </div>
+
+          {/* Seat preference filter */}
+          <div className="filter-group">
+            <div className="filter-heading">
+              <strong>Seat Preference</strong>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSeat("")}
+                disabled={!selectedSeat}
+              >
+                Clear
+              </button>
+            </div>
+
+            <select
+              value={selectedSeat}
+              onChange={(e) => setSelectedSeat(e.target.value)}
+            >
+              <option value="">All Seat Preferences</option>
+              <option value="Window">Window</option>
+              <option value="Aisle">Aisle</option>
+              <option value="Middle">Middle</option>
+            </select>
+          </div>
+
+          {/* Cabin class filter */}
+          <div className="filter-group">
+            <div className="filter-heading">
+              <strong>Cabin Class</strong>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCabinClass("")}
+                disabled={!selectedCabinClass}
+              >
+                Clear
+              </button>
+            </div>
+
+            <select
+              value={selectedCabinClass}
+              onChange={(e) => setSelectedCabinClass(e.target.value)}
+            >
+              <option value="">All Cabin Classes</option>
+              <option value="Economy">Economy</option>
+              <option value="Premium Economy">Premium Economy</option>
+              <option value="Business">Business</option>
+              <option value="First Class">First Class</option>
+            </select>
+          </div>
+
+          {/* Clear all filters */}
+          <button
+            type="button"
+            className="clear-all-filters"
+            onClick={clearAllFilters}
+            disabled={
+              selectedAirlines.length === 0 &&
+              !selectedSeat &&
+              !selectedCabinClass
+            }
+          >
+            Clear All Filters
+          </button>
+        </div>
 
         {error && (
           <p className="error-text">
@@ -522,50 +647,51 @@ function ViewFlights() {
           </p>
         )}
 
+        {/* Outbound flight results */}
         {roundTripRoute && (
           <h2 className="flights-title">
             Outbound: {roundTripRoute.from} → {roundTripRoute.to}
           </h2>
         )}
 
-        {flights.length === 0 ? (
+        <h2 className="flights-title">
+          Flight Results ({filteredFlights.length})
+        </h2>
 
+        {filteredFlights.length === 0 ? (
           <p className="no-flights-message">
-            No flights found. Try different filters.
+            No flights match your selected filters. Try changing or clearing your filters.
           </p>
-
         ) : (
-
           <div className="flights-list">
-            {flights.map(renderFlightCard)}
+            {filteredFlights.map(renderFlightCard)}
           </div>
-
         )}
 
+        {/* Return flight results */}
         {roundTripRoute && (
           <>
             <h2 className="flights-title">
               Return: {roundTripRoute.to} → {roundTripRoute.from}
             </h2>
 
-            {returnFlights.length === 0 ? (
+            <h2 className="flights-title">
+              Return Flight Results ({filteredReturnFlights.length})
+            </h2>
 
+            {filteredReturnFlights.length === 0 ? (
               <p className="no-flights-message">
-                No return flights found. Try a different return date.
+                No return flights match your selected filters.
               </p>
-
             ) : (
-
               <div className="flights-list">
-                {returnFlights.map(renderFlightCard)}
+                {filteredReturnFlights.map(renderFlightCard)}
               </div>
-
             )}
           </>
         )}
 
         <div className="flights-footer">
-
           <button
             onClick={() => navigate("/home")}
           >
@@ -577,11 +703,8 @@ function ViewFlights() {
           >
             View My Cart
           </button>
-
         </div>
-
       </div>
-
     </div>
   )
 }
