@@ -20,6 +20,11 @@ function UserProfile() {
   const [profileError, setProfileError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Delete account
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   // Real bookings loaded from the backend
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
@@ -36,7 +41,6 @@ function UserProfile() {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    // Keep the profile page accessible if the token is missing.
     if (!token) {
       setProfileError("Please log in to load your profile information.");
       return;
@@ -145,7 +149,9 @@ function UserProfile() {
       });
 
       if (!response.ok) {
-        throw new Error("Could not load your loyalty points. Please try again later.");
+        throw new Error(
+          "Could not load your loyalty points. Please try again later."
+        );
       }
 
       const data = await response.json();
@@ -270,12 +276,10 @@ function UserProfile() {
         );
       }
 
-      // Reload bookings and points to reflect the backend's latest data.
       await Promise.all([fetchBookings(), fetchPoints()]);
 
       setBookingMessage("Booking cancelled successfully.");
     } catch (error) {
-      // Show the backend's reason (e.g. flight already departed) as an error.
       setBookingsError(
         error instanceof TypeError
           ? "Could not reach the server. Please try again."
@@ -283,6 +287,61 @@ function UserProfile() {
       );
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  // Permanently delete the logged-in user's account
+  const handleDeleteAccount = async () => {
+    const token = localStorage.getItem("token");
+    const userEmail = localStorage.getItem("userEmail");
+
+    if (!token || !API_URL) {
+      setDeleteError(
+        !token
+          ? "You must be logged in to delete your account."
+          : "The API URL is not configured."
+      );
+      return;
+    }
+
+    setDeletingAccount(true);
+    setDeleteError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/profile`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+          errorData.message ||
+            "Could not delete your account. Please try again."
+        );
+      }
+
+      // Clear the user's local cart and login information
+      if (userEmail) {
+        localStorage.removeItem(`cart_${userEmail}`);
+      }
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("userEmail");
+
+      // Redirect to the login page after successful deletion
+      window.location.href = "/";
+    } catch (error) {
+      setDeleteError(
+        error instanceof TypeError
+          ? "Could not connect to the server. Please try again."
+          : error.message
+      );
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -502,7 +561,7 @@ function UserProfile() {
         )}
       </section>
 
-      {/* Existing My Trips section */}
+      {/* My Trips */}
       <section className="profile-card">
         <h2>My Trips</h2>
         <p>View and manage your upcoming and previous flights.</p>
@@ -569,7 +628,7 @@ function UserProfile() {
         )}
       </section>
 
-      {/* Real bookings and cancellation */}
+      {/* My Bookings */}
       <section className="profile-card">
         <h2>My Bookings</h2>
         <p>View your bookings and cancel a reservation when needed.</p>
@@ -651,10 +710,7 @@ function UserProfile() {
                     <button
                       type="button"
                       onClick={() => handleCancelBooking(booking)}
-                      disabled={
-                        cancellingId === bookingId ||
-                        !bookingId
-                      }
+                      disabled={cancellingId === bookingId || !bookingId}
                     >
                       {cancellingId === bookingId
                         ? "Cancelling..."
@@ -714,6 +770,70 @@ function UserProfile() {
               </>
             )}
           </>
+        )}
+      </section>
+
+      {/* Delete Account */}
+      <section className="profile-card delete-account-section">
+        <h2>Delete Account</h2>
+
+        <p>
+          Permanently delete your UpLift account and remove your
+          account information.
+        </p>
+
+        {!showDeleteConfirmation ? (
+          <button
+            type="button"
+            className="delete-account-button"
+            onClick={() => {
+              setShowDeleteConfirmation(true);
+              setDeleteError("");
+            }}
+          >
+            Delete My Account
+          </button>
+        ) : (
+          <div className="delete-confirmation">
+            <h3>Are you sure you want to delete your account?</h3>
+
+            <p>
+              <strong>Warning:</strong> This action is permanent.
+              Your account will be deleted, and you will no longer
+              be able to log in using these credentials.
+            </p>
+
+            <p>This action cannot be undone.</p>
+
+            {deleteError && (
+              <p role="alert" className="error-message">
+                {deleteError}
+              </p>
+            )}
+
+            <button
+              type="button"
+              className="confirm-delete-button"
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+            >
+              {deletingAccount
+                ? "Deleting Account..."
+                : "Yes, Delete My Account"}
+            </button>
+
+            <button
+              type="button"
+              className="cancel-delete-button"
+              onClick={() => {
+                setShowDeleteConfirmation(false);
+                setDeleteError("");
+              }}
+              disabled={deletingAccount}
+            >
+              Cancel
+            </button>
+          </div>
         )}
       </section>
     </div>
