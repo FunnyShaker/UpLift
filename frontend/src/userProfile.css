@@ -260,3 +260,113 @@
   font-style: italic;
   color: #888;
 }
+
+.delete-confirmation h3 {
+  color: #b42318;
+}
+
+.delete-confirmation p {
+  line-height: 1.6;
+}
+
+.cancel-delete-button {
+  margin-left: 10px;
+  padding: 10px 18px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.delete-account-section button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.airline-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.airline-filter select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+
+/* Flight preference filters */
+.flight-preferences {
+  margin: 25px 0;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.flight-preferences h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.filter-group {
+  margin-bottom: 20px;
+}
+
+.filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.filter-heading button {
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 10px 0;
+}
+
+.filter-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.filter-group select {
+  padding: 9px;
+  min-width: 200px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.filter-group small {
+  display: block;
+  margin-top: 8px;
+  color: #666;
+}
+
+.clear-all-filters {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #2c3e50;
+  color: white;
+}
+
+.clear-all-filters:disabled,
+.filter-heading button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
